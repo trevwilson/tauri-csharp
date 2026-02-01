@@ -2,79 +2,96 @@
 
 This document specifies improvements to make to the forked Photino.NET layer before and during the Wry FFI transition.
 
+## Implementation Status
+
+| Item | Status | Commit |
+|------|--------|--------|
+| 1.1 Custom scheme limit | ⚠️ Partial | Improved error message; full removal requires Wry |
+| 1.2 Structured IPC | ✓ Done | `TauriMessage`, `TauriIpc` in `Ipc/` folder |
+| 1.3 Error handling | ✓ Done | `TauriException.cs` |
+| 1.4 Config builder | ❌ Deferred | Will implement during Wry swap |
+
+---
+
 ## Phase 1: Quick Wins (Before Wry Swap)
 
-### 1.1 Remove Hardcoded Custom Scheme Limit
+### 1.1 Remove Hardcoded Custom Scheme Limit ⚠️ PARTIAL
 
 **Current State:**
 ```csharp
-// Hardcoded array of 16 in PhotinoNativeParameters
-private fixed byte _customSchemeNames[16 * 256];
+// Hardcoded array of 16 in TauriNativeParameters (Photino.Native limitation)
+[MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.LPStr, SizeConst = 16)]
+internal string[] CustomSchemeNames;
 ```
 
-**Change:**
-- Use dynamic collection for scheme registration
-- Pass schemes via separate initialization call or pointer to array
-- No artificial limit
+**Status:** Cannot fully remove without modifying Photino.Native. Improvements made:
+- Better error message explaining the workaround (register after init)
+- TODO marker for removal when switching to wry-ffi
+- Schemes can be added after window creation via `Photino_AddCustomSchemeName`
 
-**Files:**
-- `PhotinoNativeParameters.cs`
-- `PhotinoWindow.NET.cs` (RegisterCustomSchemeHandler)
+**Full removal:** Deferred to Phase 3 (Wry swap)
 
-### 1.2 Structured IPC Messages
+**Files Modified:**
+- `TauriNativeParameters.cs` - Added TODO comment
+- `TauriNetDelegates.cs` - Improved error message with workaround explanation
 
-**Current State:**
-```csharp
-// String-only message passing
-public event EventHandler<string> WebMessageReceived;
-public PhotinoWindow SendWebMessage(string message);
-```
+### 1.2 Structured IPC Messages ✓ IMPLEMENTED
 
-**Change:**
-Add typed message layer on top:
+**Implementation:** `src/TauriCSharp/TauriCSharp/Ipc/`
 
 ```csharp
-public class TauriMessage<T>
+// TauriMessage - structured message with correlation
+public class TauriMessage
 {
-    public string Command { get; set; }
-    public T Payload { get; set; }
-    public string RequestId { get; set; }  // For request/response correlation
+    public string Type { get; set; }
+    public string? Id { get; set; }           // Correlation ID
+    public JsonElement? Payload { get; set; }
+    public bool IsResponse { get; set; }
+    public string? Error { get; set; }
 }
 
-// Type-safe invoke from JS
-window.RegisterCommand<RequestType, ResponseType>("commandName", handler);
+// TauriIpc - request/response with handlers
+var ipc = window.CreateIpc();
+ipc.On("command", msg => handler(msg));
+var response = await ipc.RequestAsync<T>("command", payload);
 
-// JS side: window.tauri.invoke("commandName", payload) -> Promise<response>
+// Extension methods
+window.SendMessage("type", payload);
 ```
 
-**Implementation:**
+**Features:**
 - JSON serialization via System.Text.Json
 - Request/response correlation via ID
+- Timeout handling for requests
 - Async/await support
-- Keep raw string API for backwards compatibility
+- Raw string API preserved for backwards compatibility
 
-### 1.3 Improve Error Handling
+### 1.3 Improve Error Handling ✓ IMPLEMENTED
 
-**Current State:**
-- Errors from native layer often silently fail or throw generic exceptions
-- No structured error types
+**Implementation:** `src/TauriCSharp/TauriCSharp/TauriException.cs`
 
-**Change:**
 ```csharp
-public class TauriException : Exception
+public class TauriException : Exception { }
+
+public class TauriInitializationException : TauriException
 {
-    public TauriErrorCode Code { get; }
-    public string NativeMessage { get; }
+    public IReadOnlyList<string> ValidationErrors { get; }
 }
 
-public enum TauriErrorCode
+public class TauriSchemeException : TauriException
 {
-    WindowCreationFailed,
-    WebviewInitFailed,
-    NavigationFailed,
-    CustomSchemeError,
-    IpcError,
-    // ...
+    public string? Scheme { get; }
+    public string? Url { get; }
+}
+
+public class TauriIpcException : TauriException
+{
+    public string? CorrelationId { get; }
+}
+
+public class TauriPlatformException : TauriException
+{
+    public string Platform { get; }
 }
 ```
 
@@ -263,18 +280,20 @@ app.UsePlugin<MyCustomPlugin>();
 
 ### New Files (Create)
 
-| File | Purpose |
-|------|---------|
-| `TauriApp.cs` | Application lifecycle, multi-window |
-| `TauriWindowBuilder.cs` | Configuration builder |
-| `TauriMessage.cs` | Typed IPC messages |
-| `TauriException.cs` | Structured errors |
-| `CommandRegistry.cs` | Command registration for IPC |
-| `Plugins/ITauriPlugin.cs` | Plugin interface |
-| `Plugins/DialogPlugin.cs` | File dialog implementation |
-| `Plugins/NotificationPlugin.cs` | Notification implementation |
-| `Plugins/ShellPlugin.cs` | Shell operations |
-| `Plugins/ClipboardPlugin.cs` | Clipboard operations |
+| File | Purpose | Status |
+|------|---------|--------|
+| `TauriApp.cs` | Application lifecycle, multi-window | Phase 3 |
+| `TauriWindowBuilder.cs` | Configuration builder | Phase 2 |
+| `Ipc/TauriMessage.cs` | Typed IPC messages | ✓ Created |
+| `Ipc/TauriIpc.cs` | Request/response IPC manager | ✓ Created |
+| `Ipc/TauriWindowIpcExtensions.cs` | Extension methods | ✓ Created |
+| `TauriException.cs` | Structured errors | ✓ Created |
+| `CommandRegistry.cs` | Command registration for IPC | Phase 3 |
+| `Plugins/ITauriPlugin.cs` | Plugin interface | Phase 3 |
+| `Plugins/DialogPlugin.cs` | File dialog implementation | Phase 3 |
+| `Plugins/NotificationPlugin.cs` | Notification implementation | Phase 3 |
+| `Plugins/ShellPlugin.cs` | Shell operations | Phase 3 |
+| `Plugins/ClipboardPlugin.cs` | Clipboard operations | Phase 3 |
 
 ---
 
