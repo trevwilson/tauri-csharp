@@ -323,7 +323,12 @@ public partial class TauriWindow
         }
         else
         {
-            Photino_AddCustomSchemeName(_nativeInstance, scheme);
+            // wry-ffi requires protocols to be registered before window creation
+            // After window creation, we cannot add new schemes dynamically
+            throw new TauriSchemeException(
+                $"Cannot register scheme '{scheme}' after window initialization. " +
+                "With wry-ffi backend, all custom schemes must be registered before calling WaitForClose().",
+                scheme);
         }
 
         CustomSchemes[scheme] += handler;

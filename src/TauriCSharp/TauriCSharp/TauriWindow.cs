@@ -1,10 +1,12 @@
 // Originally from Photino.NET (https://github.com/tryphotino/photino.NET)
 // Modified by tauri-csharp project - 2025
-// Changes: Namespace and type renames from Photino to Tauri
+// Migrated to wry-ffi backend
 
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using TauriCSharp.Handles;
+using TauriCSharp.Interop;
 
 namespace TauriCSharp;
 
@@ -106,17 +108,11 @@ public partial class TauriWindow
     {
         get
         {
-            if (IsWindowsPlatform)
-            {
-                if (_nativeInstance == IntPtr.Zero)
-                    throw new ApplicationException("The TauriCSharp window is not initialized yet");
-
-                var handle = IntPtr.Zero;
-                Invoke(() => handle = Photino_getHwnd_win32(_nativeInstance));
-                return handle;
-            }
-            else
-                throw new PlatformNotSupportedException($"{nameof(WindowHandle)} is only supported on Windows.");
+            // wry-ffi doesn't expose the native window handle directly
+            // Return the wry window handle instead
+            if (_nativeInstance == IntPtr.Zero)
+                throw new ApplicationException("The TauriCSharp window is not initialized yet");
+            return _nativeInstance;
         }
     }
 
@@ -135,20 +131,8 @@ public partial class TauriWindow
     {
         get
         {
-            if (_nativeInstance == IntPtr.Zero)
-                throw new ApplicationException("The TauriCSharp window hasn't been initialized yet.");
-
-            List<Monitor> monitors = new();
-
-            int callback(in NativeMonitor monitor)
-            {
-                monitors.Add(new Monitor(monitor));
-                return 1;
-            }
-
-            Invoke(() => Photino_GetAllMonitors(_nativeInstance, callback));
-
-            return monitors;
+            // Monitor enumeration not yet supported in wry-ffi
+            throw new NotSupportedException("Monitor enumeration is not yet supported with the wry-ffi backend.");
         }
     }
 
@@ -180,12 +164,8 @@ public partial class TauriWindow
     {
         get
         {
-            if (_nativeInstance == IntPtr.Zero)
-                throw new ApplicationException("The TauriCSharp window hasn't been initialized yet.");
-
-            uint dpi = 0;
-            Invoke(() => dpi = Photino_GetScreenDpi(_nativeInstance));
-            return dpi;
+            // Screen DPI not yet supported in wry-ffi, return a reasonable default
+            return 96; // Standard DPI
         }
     }
 
@@ -220,7 +200,7 @@ public partial class TauriWindow
                     _startupParameters.CenterOnInitialize = value;
             }
             else
-                Invoke(() => Photino_Center(_nativeInstance));
+                Log("Warning: Centering window after creation is not supported with wry-ffi backend");
         }
     }
 
@@ -270,7 +250,7 @@ public partial class TauriWindow
                 return _startupParameters.Transparent;
 
             var enabled = false;
-            Invoke(() => Photino_GetTransparentEnabled(_nativeInstance, out enabled));
+            enabled = _startupParameters.Transparent;
             return enabled;
         }
         set
@@ -286,7 +266,7 @@ public partial class TauriWindow
                     else
                     {
                         Log($"Invoking Photino_SetTransparentEnabled({value})");
-                        Invoke(() => Photino_SetTransparentEnabled(_nativeInstance, value));
+                        Log("Warning: Transparent cannot be changed after window creation with wry-ffi backend");
                     }
                 }
             }
@@ -305,7 +285,7 @@ public partial class TauriWindow
                 return _startupParameters.ContextMenuEnabled;
 
             var enabled = false;
-            Invoke(() => Photino_GetContextMenuEnabled(_nativeInstance, out enabled));
+            enabled = _startupParameters.ContextMenuEnabled;
             return enabled;
         }
         set
@@ -315,7 +295,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.ContextMenuEnabled = value;
                 else
-                    Invoke(() => Photino_SetContextMenuEnabled(_nativeInstance, value));
+                    Log("Warning: ContextMenuEnabled cannot be changed after window creation with wry-ffi backend");
             }
         }
     }
@@ -332,7 +312,7 @@ public partial class TauriWindow
                 return _startupParameters.DevToolsEnabled;
 
             var enabled = false;
-            Invoke(() => Photino_GetDevToolsEnabled(_nativeInstance, out enabled));
+            enabled = _startupParameters.DevToolsEnabled;
             return enabled;
         }
         set
@@ -342,7 +322,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.DevToolsEnabled = value;
                 else
-                    Invoke(() => Photino_SetDevToolsEnabled(_nativeInstance, value));
+                    Log("Warning: DevToolsEnabled cannot be changed after window creation with wry-ffi backend");
             }
         }
     }
@@ -355,7 +335,7 @@ public partial class TauriWindow
                 return _startupParameters.MediaAutoplayEnabled;
 
             var enabled = false;
-            Invoke(() => Photino_GetMediaAutoplayEnabled(_nativeInstance, out enabled));
+            enabled = _startupParameters.MediaAutoplayEnabled;
             return enabled;
         }
         set
@@ -377,13 +357,8 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.UserAgent;
 
-            var userAgent = string.Empty;
-            Invoke(() =>
-            {
-                var ptr = Photino_GetUserAgent(_nativeInstance);
-                userAgent = Marshal.PtrToStringAuto(ptr);
-            });
-            return userAgent;
+            // wry-ffi doesn't expose user agent getter, return startup value
+            return _startupParameters.UserAgent ?? "TauriCSharp WebView";
         }
         set
         {
@@ -405,7 +380,7 @@ public partial class TauriWindow
                 return _startupParameters.FileSystemAccessEnabled;
 
             var enabled = false;
-            Invoke(() => Photino_GetFileSystemAccessEnabled(_nativeInstance, out enabled));
+            enabled = _startupParameters.FileSystemAccessEnabled;
             return enabled;
         }
         set
@@ -428,7 +403,7 @@ public partial class TauriWindow
                 return _startupParameters.WebSecurityEnabled;
 
             var enabled = true;
-            Invoke(() => Photino_GetWebSecurityEnabled(_nativeInstance, out enabled));
+            enabled = _startupParameters.WebSecurityEnabled;
             return enabled;
         }
         set
@@ -451,7 +426,7 @@ public partial class TauriWindow
                 return _startupParameters.JavascriptClipboardAccessEnabled;
 
             var enabled = true;
-            Invoke(() => Photino_GetJavascriptClipboardAccessEnabled(_nativeInstance, out enabled));
+            enabled = _startupParameters.JavascriptClipboardAccessEnabled;
             return enabled;
         }
         set
@@ -474,7 +449,7 @@ public partial class TauriWindow
                 return _startupParameters.MediaStreamEnabled;
 
             var enabled = true;
-            Invoke(() => Photino_GetMediaStreamEnabled(_nativeInstance, out enabled));
+            enabled = _startupParameters.MediaStreamEnabled;
             return enabled;
         }
         set
@@ -497,7 +472,7 @@ public partial class TauriWindow
                 return _startupParameters.SmoothScrollingEnabled;
 
             var enabled = false;
-            Invoke(() => Photino_GetSmoothScrollingEnabled(_nativeInstance, out enabled));
+            enabled = _startupParameters.SmoothScrollingEnabled;
             return enabled;
         }
         set
@@ -520,7 +495,7 @@ public partial class TauriWindow
                 return _startupParameters.IgnoreCertificateErrorsEnabled;
 
             var enabled = false;
-            Invoke(() => Photino_GetIgnoreCertificateErrorsEnabled(_nativeInstance, out enabled));
+            enabled = _startupParameters.IgnoreCertificateErrorsEnabled;
             return enabled;
         }
         set
@@ -543,7 +518,7 @@ public partial class TauriWindow
                 return _startupParameters.NotificationsEnabled;
 
             var enabled = false;
-            Invoke(() => Photino_GetNotificationsEnabled(_nativeInstance, out enabled));
+            enabled = _startupParameters.NotificationsEnabled;
             return enabled;
         }
         set
@@ -572,7 +547,7 @@ public partial class TauriWindow
                 return _startupParameters.FullScreen;
 
             var fullScreen = false;
-            Invoke(() => Photino_GetFullScreen(_nativeInstance, out fullScreen));
+            fullScreen = false; // wry-ffi does not expose fullscreen getter
             return fullScreen;
         }
         set
@@ -582,7 +557,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.FullScreen = value;
                 else
-                    Invoke(() => Photino_SetFullScreen(_nativeInstance, value));
+                    WryInterop.WindowSetFullscreen(_nativeInstance, value);
             }
         }
     }
@@ -602,7 +577,7 @@ public partial class TauriWindow
                 return _startupParameters.GrantBrowserPermissions;
 
             var grant = false;
-            Invoke(() => Photino_GetGrantBrowserPermissions(_nativeInstance, out grant));
+            grant = _startupParameters.GrantBrowserPermissions;
             return grant;
         }
         set
@@ -664,7 +639,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.WindowIconFile = _iconFile;
                 else
-                    Invoke(() => Photino_SetIconFile(_nativeInstance, _iconFile));
+                    Log("Warning: Icon file not supported in wry-ffi backend");
             }
         }
     }
@@ -683,7 +658,7 @@ public partial class TauriWindow
 
             var left = 0;
             var top = 0;
-            Invoke(() => Photino_GetPosition(_nativeInstance, out left, out top));
+            var pos = WryInterop.WindowGetPosition(_nativeInstance); left = pos.X; top = pos.Y;
             return new Point(left, top);
         }
         set
@@ -696,7 +671,7 @@ public partial class TauriWindow
                     _startupParameters.Top = value.Y;
                 }
                 else
-                    Invoke(() => Photino_SetPosition(_nativeInstance, value.X, value.Y));
+                    WryInterop.WindowSetPosition(_nativeInstance, new WryPosition(value.X, value.Y));
             }
         }
     }
@@ -729,7 +704,7 @@ public partial class TauriWindow
                 return _startupParameters.Maximized;
 
             bool maximized = false;
-            Invoke(() => Photino_GetMaximized(_nativeInstance, out maximized));
+            maximized = false; // wry-ffi does not expose maximized getter
             return maximized;
         }
         set
@@ -739,7 +714,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Maximized = value;
                 else
-                    Invoke(() => Photino_SetMaximized(_nativeInstance, value));
+                    if (value) WryInterop.WindowMaximize(_nativeInstance); else WryInterop.WindowUnmaximize(_nativeInstance);
             }
         }
     }
@@ -758,7 +733,7 @@ public partial class TauriWindow
                     _startupParameters.MaxHeight = value.Y;
                 }
                 else
-                    Invoke(() => Photino_SetMaxSize(_nativeInstance, value.X, value.Y));
+                    Log("Warning: SetMaxSize after creation not supported in wry-ffi");
             }
         }
     }
@@ -805,7 +780,7 @@ public partial class TauriWindow
                 return _startupParameters.Minimized;
 
             bool minimized = false;
-            Invoke(() => Photino_GetMinimized(_nativeInstance, out minimized));
+            minimized = false; // wry-ffi does not expose minimized getter
             return minimized;
         }
         set
@@ -815,7 +790,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Minimized = value;
                 else
-                    Invoke(() => Photino_SetMinimized(_nativeInstance, value));
+                    if (value) WryInterop.WindowMinimize(_nativeInstance);
             }
         }
     }
@@ -834,7 +809,7 @@ public partial class TauriWindow
                     _startupParameters.MinHeight = value.Y;
                 }
                 else
-                    Invoke(() => Photino_SetMinSize(_nativeInstance, value.X, value.Y));
+                    Log("Warning: SetMinSize after creation not supported in wry-ffi");
             }
         }
     }
@@ -888,7 +863,7 @@ public partial class TauriWindow
                 return _startupParameters.Resizable;
 
             var resizable = false;
-            Invoke(() => Photino_GetResizable(_nativeInstance, out resizable));
+            resizable = _startupParameters.Resizable;
             return resizable;
         }
         set
@@ -898,7 +873,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Resizable = value;
                 else
-                    Invoke(() => Photino_SetResizable(_nativeInstance, value));
+                    Log("Warning: Resizable cannot be changed after window creation with wry-ffi backend");
             }
         }
     }
@@ -917,7 +892,7 @@ public partial class TauriWindow
 
             var width = 0;
             var height = 0;
-            Invoke(() => Photino_GetSize(_nativeInstance, out width, out height));
+            var size = WryInterop.WindowGetSize(_nativeInstance); width = (int)size.Width; height = (int)size.Height;
             return new Size(width, height);
         }
         set
@@ -930,7 +905,7 @@ public partial class TauriWindow
                     _startupParameters.Width = value.Width;
                 }
                 else
-                    Invoke(() => Photino_SetSize(_nativeInstance, value.Width, value.Height));
+                    WryInterop.WindowSetSize(_nativeInstance, new WrySize((uint)value.Width, (uint)value.Height));
             }
         }
     }
@@ -1095,13 +1070,8 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.Title;
 
-            var title = string.Empty;
-            Invoke(() =>
-            {
-                var ptr = Photino_GetTitle(_nativeInstance);
-                title = Marshal.PtrToStringAuto(ptr);
-            });
-            return title;
+            using var nativeStr = new WryNativeString(WryInterop.WindowGetTitle(_nativeInstance));
+            return nativeStr.Value ?? "";
         }
         set
         {
@@ -1114,7 +1084,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Title = value;
                 else
-                    Invoke(() => Photino_SetTitle(_nativeInstance, value));
+                    Invoke(() => WryInterop.WindowSetTitle(_nativeInstance, value));
             }
         }
     }
@@ -1146,7 +1116,7 @@ public partial class TauriWindow
                 return _startupParameters.Topmost;
 
             var topmost = false;
-            Invoke(() => Photino_GetTopmost(_nativeInstance, out topmost));
+            topmost = _startupParameters.Topmost;
             return topmost;
         }
         set
@@ -1156,7 +1126,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Topmost = value;
                 else
-                    Invoke(() => Photino_SetTopmost(_nativeInstance, value));
+                    Log("Warning: Topmost cannot be changed after window creation with wry-ffi backend");
             }
         }
     }
@@ -1433,7 +1403,7 @@ public partial class TauriWindow
                 return _startupParameters.Zoom;
 
             var zoom = 0;
-            Invoke(() => Photino_GetZoom(_nativeInstance, out zoom));
+            zoom = _startupParameters.Zoom;
             return zoom;
         }
         set
@@ -1443,7 +1413,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Zoom = value;
                 else
-                    Invoke(() => Photino_SetZoom(_nativeInstance, value));
+                    WryInterop.WebViewSetZoom(_nativeInstance, value / 100.0);
             }
         }
     }
@@ -1496,6 +1466,7 @@ public partial class TauriWindow
 
     /// <summary>
     /// Dispatches an Action to the UI thread if called from another thread.
+    /// Uses wry_invoke_sync for proper delegate pinning and thread-safe dispatch.
     /// </summary>
     /// <returns>
     /// Returns the current <see cref="TauriWindow"/> instance.
@@ -1503,12 +1474,7 @@ public partial class TauriWindow
     /// <param name="workItem">The delegate encapsulating a method / action to be executed in the UI thread.</param>
     public TauriWindow Invoke(Action workItem)
     {
-        // If we're already on the UI thread, no need to dispatch
-        if (Environment.CurrentManagedThreadId == _managedThreadId)
-            workItem();
-        else
-            Photino_Invoke(_nativeInstance, workItem.Invoke);
-        return this;
+        return InvokeWry(workItem);
     }
 
     /// <summary>
@@ -1527,7 +1493,7 @@ public partial class TauriWindow
         if (_nativeInstance == IntPtr.Zero)
             _startupParameters.StartUrl = uri.ToString();
         else
-            Invoke(() => Photino_NavigateToUrl(_nativeInstance, uri.ToString()));
+            Invoke(() => Interop.WryInterop.WebViewNavigate(_nativeInstance, uri.ToString()).ThrowIfError());
         return this;
     }
 
@@ -1590,7 +1556,7 @@ public partial class TauriWindow
         if (_nativeInstance == IntPtr.Zero)
             _startupParameters.StartString = content;
         else
-            Invoke(() => Photino_NavigateToString(_nativeInstance, content));
+            Invoke(() => Interop.WryInterop.WebViewLoadHtml(_nativeInstance, content).ThrowIfError());
         return this;
     }
 
@@ -2343,7 +2309,7 @@ public partial class TauriWindow
     public TauriWindow Win32SetWebView2Path(string data)
     {
         if (IsWindowsPlatform)
-            Invoke(() => Photino_setWebView2RuntimePath_win32(_nativeType, data));
+            Log("Warning: WebView2 runtime path not applicable with wry-ffi backend");
         else
             Log("Win32SetWebView2Path is only supported on the Windows platform");
 
@@ -2362,7 +2328,7 @@ public partial class TauriWindow
     public TauriWindow ClearBrowserAutoFill()
     {
         if (IsWindowsPlatform)
-            Invoke(() => Photino_ClearBrowserAutoFill(_nativeInstance));
+            Log("Warning: ClearBrowserAutoFill not supported with wry-ffi backend");
         else
             Log("ClearBrowserAutoFill is only supported on the Windows platform");
 
@@ -2381,32 +2347,21 @@ public partial class TauriWindow
     /// </remarks>
     public void WaitForClose()
     {
-        //fill in the fixed size array of custom scheme names
-        var i = 0;
-        foreach (var name in CustomSchemes.Take(16))
+        // Register custom protocols before window creation
+        var app = EnsureWryApp();
+        foreach (var scheme in CustomSchemes)
         {
-            _startupParameters.CustomSchemeNames[i] = name.Key;
-            i++;
+            RegisterWryProtocol(app, scheme.Key);
         }
-
-        _startupParameters.NativeParent = _dotNetParent == null
-            ? IntPtr.Zero
-            : _dotNetParent._nativeInstance;
 
         var errors = _startupParameters.GetParamErrors();
         if (errors.Count == 0)
         {
             OnWindowCreating();
-            try  //All C++ exceptions will bubble up to here.
+            try
             {
-                _nativeType = NativeLibrary.GetMainProgramHandle();
-
-                if (IsWindowsPlatform)
-                    Invoke(() => Photino_register_win32(_nativeType));
-                else if (IsMacOsPlatform)
-                    Invoke(() => Photino_register_mac());
-
-                Invoke(() => _nativeInstance = Photino_ctor(ref _startupParameters));
+                // Create window using wry-ffi
+                CreateWryWindow();
             }
             catch (Exception ex)
             {
@@ -2415,7 +2370,7 @@ public partial class TauriWindow
                     lastError = Marshal.GetLastWin32Error();
 
                 Log($"***\n{ex.Message}\n{ex.StackTrace}\nError #{lastError}");
-                throw new ApplicationException($"Native code exception. Error # {lastError}  See inner exception for details.", ex);
+                throw new TauriInitializationException($"Native code exception. Error # {lastError}  See inner exception for details.", [ex.Message]);
             }
             OnWindowCreated();
 
@@ -2424,7 +2379,14 @@ public partial class TauriWindow
                 _messageLoopIsStarted = true;
                 try
                 {
-                    Invoke(() => Photino_WaitForExit(_nativeInstance));       //start the message loop. there can only be 1 message loop for all windows.
+                    // Run the wry event loop - blocks until all windows close or quit is called
+                    var result = Interop.WryInterop.AppRun(app.DangerousGetRawHandle());
+                    result.ThrowIfError();
+                }
+                catch (Interop.WryException ex)
+                {
+                    Log($"***\n{ex.Message}\n{ex.StackTrace}\nError code: {ex.ErrorCode}");
+                    throw new TauriInitializationException($"Event loop error: {ex.Message}", [ex.Message]);
                 }
                 catch (Exception ex)
                 {
@@ -2433,7 +2395,7 @@ public partial class TauriWindow
                         lastError = Marshal.GetLastWin32Error();
 
                     Log($"***\n{ex.Message}\n{ex.StackTrace}\nError #{lastError}");
-                    throw new ApplicationException($"Native code exception. Error # {lastError}  See inner exception for details.", ex);
+                    throw new TauriInitializationException($"Native code exception. Error # {lastError}  See inner exception for details.", [ex.Message]);
                 }
             }
         }
@@ -2441,6 +2403,48 @@ public partial class TauriWindow
         {
             throw new TauriInitializationException("Window startup parameters are not valid.", errors);
         }
+    }
+
+    /// <summary>
+    /// Registers a custom protocol with the wry app.
+    /// </summary>
+    private void RegisterWryProtocol(Handles.WryAppHandle app, string scheme)
+    {
+        // The protocol callback needs to be pinned
+        Interop.CustomProtocolCallbackNative callback = (IntPtr window, IntPtr urlPtr, out IntPtr outData, out nuint outLen, out IntPtr outMimeType, IntPtr userData) =>
+        {
+            outData = IntPtr.Zero;
+            outLen = 0;
+            outMimeType = IntPtr.Zero;
+
+            var url = urlPtr != IntPtr.Zero ? Marshal.PtrToStringUTF8(urlPtr) : null;
+            if (url == null) return false;
+
+            try
+            {
+                var result = OnCustomScheme(url, out int numBytes, out string contentType);
+                if (result == IntPtr.Zero) return false;
+
+                outData = result;
+                outLen = (nuint)numBytes;
+
+                // Allocate and return the content type string
+                if (!string.IsNullOrEmpty(contentType))
+                {
+                    outMimeType = Marshal.StringToCoTaskMemUTF8(contentType);
+                }
+
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log($"Custom scheme error: {ex.Message}");
+                return false;
+            }
+        };
+
+        _callbackRegistry.Register(app.DangerousGetRawHandle(), callback);
+        Interop.WryInterop.RegisterProtocol(app.DangerousGetRawHandle(), scheme, callback, IntPtr.Zero).ThrowIfError();
     }
 
     /// <summary>
@@ -2454,7 +2458,7 @@ public partial class TauriWindow
         Log(".Close()");
         if (_nativeInstance == IntPtr.Zero)
             throw new TauriInitializationException("Close cannot be called until the window is initialized.");
-        Invoke(() => Photino_Close(_nativeInstance));
+        Invoke(() => Interop.WryInterop.WindowClose(_nativeInstance));
     }
 
     /// <summary>
@@ -2472,7 +2476,7 @@ public partial class TauriWindow
         Log($".SendWebMessage({message})");
         if (_nativeInstance == IntPtr.Zero)
             throw new TauriInitializationException("SendWebMessage cannot be called until the window is initialized.");
-        Invoke(() => Photino_SendWebMessage(_nativeInstance, message));
+        WryInterop.WebViewSendMessage(_nativeInstance, message).ThrowIfError();
     }
 
     public async Task SendWebMessageAsync(string message)
@@ -2482,7 +2486,7 @@ public partial class TauriWindow
             Log($".SendWebMessage({message})");
             if (_nativeInstance == IntPtr.Zero)
                 throw new TauriInitializationException("SendWebMessage cannot be called until the window is initialized.");
-            Invoke(() => Photino_SendWebMessage(_nativeInstance, message));
+            WryInterop.WebViewSendMessage(_nativeInstance, message).ThrowIfError();
         });
     }
 
@@ -2500,7 +2504,7 @@ public partial class TauriWindow
         Log($".SendNotification({title}, {body})");
         if (_nativeInstance == IntPtr.Zero)
             throw new ApplicationException("SendNotification cannot be called until after the TauriCSharp window is initialized.");
-        Invoke(() => Photino_ShowNotification(_nativeInstance, title, body));
+        throw new NotSupportedException("Notifications not yet supported with wry-ffi backend");
     }
 
     /// <summary>
@@ -2580,19 +2584,8 @@ public partial class TauriWindow
     /// <returns></returns>
     public string ShowSaveFile(string title = "Save file", string defaultPath = null, (string Name, string[] Extensions)[] filters = null)
     {
-        defaultPath ??= Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        filters ??= Array.Empty<(string, string[])>();
-
-        string result = null;
-        var nativeFilters = GetNativeFilters(filters);
-
-        Invoke(() =>
-        {
-            var ptrResult = Photino_ShowSaveFile(_nativeInstance, title, defaultPath, nativeFilters, filters.Length);
-            result = Marshal.PtrToStringAuto(ptrResult);
-        });
-
-        return result;
+        throw new NotSupportedException("Save file dialog is not yet supported with the wry-ffi backend. " +
+            "This feature will be implemented in a future release.");
     }
 
     /// <summary>
@@ -2626,9 +2619,8 @@ public partial class TauriWindow
     /// <returns><see cref="TauriDialogResult" /></returns>
     public TauriDialogResult ShowMessage(string title, string text, TauriDialogButtons buttons = TauriDialogButtons.Ok, TauriDialogIcon icon = TauriDialogIcon.Info)
     {
-        var result = TauriDialogResult.Cancel;
-        Invoke(() => result = Photino_ShowMessage(_nativeInstance, title, text, buttons, icon));
-        return result;
+        throw new NotSupportedException("Message dialog is not yet supported with the wry-ffi backend. " +
+            "This feature will be implemented in a future release.");
     }
 
     /// <summary>
@@ -2642,29 +2634,9 @@ public partial class TauriWindow
     /// <returns>Array of paths</returns>
     private string[] ShowOpenDialog(bool foldersOnly, string title, string defaultPath, bool multiSelect, (string Name, string[] Extensions)[] filters)
     {
-        defaultPath ??= Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
-        filters ??= Array.Empty<(string, string[])>();
-
-        var results = Array.Empty<string>();
-        var nativeFilters = GetNativeFilters(filters, foldersOnly);
-
-        Invoke(() =>
-        {
-            var ptrResults = foldersOnly ?
-                Photino_ShowOpenFolder(_nativeInstance, title, defaultPath, multiSelect, out var resultCount) :
-                Photino_ShowOpenFile(_nativeInstance, title, defaultPath, multiSelect, nativeFilters, nativeFilters.Length, out resultCount);
-            if (resultCount == 0) return;
-
-            var ptrArray = new IntPtr[resultCount];
-            results = new string[resultCount];
-            Marshal.Copy(ptrResults, ptrArray, 0, resultCount);
-            for (var i = 0; i < resultCount; i++)
-            {
-                results[i] = Marshal.PtrToStringAuto(ptrArray[i]);
-            }
-        });
-
-        return results;
+        var dialogType = foldersOnly ? "Open folder" : "Open file";
+        throw new NotSupportedException($"{dialogType} dialog is not yet supported with the wry-ffi backend. " +
+            "This feature will be implemented in a future release.");
     }
 
     /// <summary>

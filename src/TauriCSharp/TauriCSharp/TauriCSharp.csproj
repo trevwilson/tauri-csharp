@@ -34,9 +34,21 @@
 		</PropertyGroup>
 	</Target>
 
-	<!-- TODO: Replace with wry-ffi native package once built -->
+	<!--
+		Native library: wry_ffi
+		The library name varies by platform:
+		- Windows: wry_ffi.dll
+		- Linux: libwry_ffi.so
+		- macOS: libwry_ffi.dylib
+
+		The library is expected to be in one of these locations:
+		1. Same directory as the application
+		2. A 'runtimes/<rid>/native' directory (for NuGet packaging)
+		3. System library paths
+	-->
 	<ItemGroup>
-		<PackageReference Include="Photino.Native" Version="4.0.22" />
+		<!-- No external package reference needed - wry_ffi is built locally -->
+		<!-- The NativeLibrary resolver will find libwry_ffi in standard locations -->
 	</ItemGroup>
 
 </Project>
