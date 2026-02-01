@@ -297,28 +297,29 @@ public partial class TauriWindow
     /// </returns>
     /// <param name="scheme">The custom scheme</param>
     /// <param name="handler"><see cref="EventHandler"/></param>
-    /// <exception cref="ArgumentException">Thrown if no scheme or handler was provided</exception>
-    /// <exception cref="ApplicationException">Thrown if more than 16 custom schemes were set</exception>
+    /// <exception cref="TauriSchemeException">Thrown if no scheme or handler was provided, or if scheme limit exceeded</exception>
     public TauriWindow RegisterCustomSchemeHandler(string scheme, NetCustomSchemeDelegate handler)
     {
         if (string.IsNullOrWhiteSpace(scheme))
-            throw new ArgumentException("A scheme must be provided. (for example 'app' or 'custom'");
+            throw new TauriSchemeException("A scheme must be provided (e.g., 'app' or 'custom').");
 
-        if (handler == null)
-            throw new ArgumentException("A handler (method) with a signature matching NetCustomSchemeDelegate must be supplied.");
+        ArgumentNullException.ThrowIfNull(handler);
 
         scheme = scheme.ToLower();
 
         if (_nativeInstance == IntPtr.Zero)
         {
-            // TODO: Remove 16 scheme limit when switching to wry-ffi
-            if (CustomSchemes.Count > 15 && !CustomSchemes.ContainsKey(scheme))
-                throw new ApplicationException($"No more than 16 custom schemes can be set prior to initialization. Additional handlers can be added after initialization.");
-            else
-            {
-                if (!CustomSchemes.ContainsKey(scheme))
-                    CustomSchemes.Add(scheme, null);
-            }
+            // Native layer limitation: only 16 schemes can be registered before initialization.
+            // Additional schemes can be added after initialization via Photino_AddCustomSchemeName.
+            // TODO: Remove this limit when switching to wry-ffi
+            if (CustomSchemes.Count >= 16 && !CustomSchemes.ContainsKey(scheme))
+                throw new TauriSchemeException(
+                    $"Cannot register scheme '{scheme}': maximum of 16 schemes can be registered before window initialization. " +
+                    "Register additional schemes after calling WaitForExit() or use fewer pre-initialization schemes.",
+                    scheme);
+
+            if (!CustomSchemes.ContainsKey(scheme))
+                CustomSchemes.Add(scheme, null);
         }
         else
         {
@@ -338,23 +339,18 @@ public partial class TauriWindow
     /// <param name="numBytes">Number of bytes of the response</param>
     /// <param name="contentType">Content type of the response</param>
     /// <returns><see cref="IntPtr"/></returns>
-    /// <exception cref="ApplicationException">
-    /// Thrown when the URL does not contain a colon.
-    /// </exception>
-    /// <exception cref="ApplicationException">
-    /// Thrown when no handler is registered.
-    /// </exception>
+    /// <exception cref="TauriSchemeException">Thrown when URL is invalid or no handler is registered.</exception>
     public IntPtr OnCustomScheme(string url, out int numBytes, out string contentType)
     {
         var colonPos = url.IndexOf(':');
 
         if (colonPos < 0)
-            throw new ApplicationException($"URL: '{url}' does not contain a colon.");
+            throw new TauriSchemeException($"Invalid URL '{url}': missing scheme separator (':').");
 
         var scheme = url.Substring(0, colonPos).ToLower();
 
         if (!CustomSchemes.ContainsKey(scheme))
-            throw new ApplicationException($"A handler for the custom scheme '{scheme}' has not been registered.");
+            throw new TauriSchemeException($"No handler registered for scheme '{scheme}'.", scheme, url);
 
         contentType = "";
         var responseStream = CustomSchemes[scheme]?.Invoke(this, scheme, url, out contentType);

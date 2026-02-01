@@ -2439,11 +2439,7 @@ public partial class TauriWindow
         }
         else
         {
-            var formattedErrors = "\n";
-            foreach (var error in errors)
-                formattedErrors += error + "\n";
-
-            throw new ArgumentException($"Startup Parameters Are Not Valid: {formattedErrors}");
+            throw new TauriInitializationException("Window startup parameters are not valid.", errors);
         }
     }
 
@@ -2457,7 +2453,7 @@ public partial class TauriWindow
     {
         Log(".Close()");
         if (_nativeInstance == IntPtr.Zero)
-            throw new ApplicationException("Close cannot be called until after the TauriCSharp window is initialized.");
+            throw new TauriInitializationException("Close cannot be called until the window is initialized.");
         Invoke(() => Photino_Close(_nativeInstance));
     }
 
@@ -2475,7 +2471,7 @@ public partial class TauriWindow
     {
         Log($".SendWebMessage({message})");
         if (_nativeInstance == IntPtr.Zero)
-            throw new ApplicationException("SendWebMessage cannot be called until after the TauriCSharp window is initialized.");
+            throw new TauriInitializationException("SendWebMessage cannot be called until the window is initialized.");
         Invoke(() => Photino_SendWebMessage(_nativeInstance, message));
     }
 
@@ -2485,7 +2481,7 @@ public partial class TauriWindow
         {
             Log($".SendWebMessage({message})");
             if (_nativeInstance == IntPtr.Zero)
-                throw new ApplicationException("SendWebMessage cannot be called until after the TauriCSharp window is initialized.");
+                throw new TauriInitializationException("SendWebMessage cannot be called until the window is initialized.");
             Invoke(() => Photino_SendWebMessage(_nativeInstance, message));
         });
     }
