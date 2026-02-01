@@ -506,3 +506,384 @@ result.ThrowIfFailed();
 WryInterop.wry_window_destroy(window);
 WryInterop.wry_app_destroy(app);
 ```
+
+## Additional Structs (Phase 3+)
+
+```csharp
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryFileFilter
+{
+    public IntPtr Name;      // UTF-8 string, e.g., "Images"
+    public IntPtr Pattern;   // UTF-8 string, e.g., "*.png;*.jpg"
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryFileDialogResult
+{
+    public IntPtr Paths;     // Array of UTF-8 string pointers
+    public nuint Count;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryMonitor
+{
+    public int X;
+    public int Y;
+    public uint Width;
+    public uint Height;
+    public int WorkX;
+    public int WorkY;
+    public uint WorkWidth;
+    public uint WorkHeight;
+    public double ScaleFactor;
+    [MarshalAs(UnmanagedType.U1)]
+    public bool IsPrimary;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryMonitorList
+{
+    public IntPtr Monitors;  // Array of WryMonitor
+    public nuint Count;
+}
+
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryCapabilities
+{
+    [MarshalAs(UnmanagedType.U1)]
+    public bool HasSystemTray;
+    [MarshalAs(UnmanagedType.U1)]
+    public bool HasNotifications;
+    [MarshalAs(UnmanagedType.U1)]
+    public bool HasTransparentWindows;
+    [MarshalAs(UnmanagedType.U1)]
+    public bool HasDragDrop;
+    [MarshalAs(UnmanagedType.U1)]
+    public bool HasDevtools;
+    public IntPtr WebviewVersion;  // UTF-8 string
+    public IntPtr Platform;        // UTF-8 string
+}
+
+internal enum WryMessageBoxButtons
+{
+    Ok = 0,
+    OkCancel = 1,
+    YesNo = 2,
+    YesNoCancel = 3,
+}
+
+internal enum WryMessageBoxIcon
+{
+    Info = 0,
+    Warning = 1,
+    Error = 2,
+    Question = 3,
+}
+
+internal enum WryMessageBoxResult
+{
+    Ok = 0,
+    Cancel = 1,
+    Yes = 2,
+    No = 3,
+}
+
+internal enum WryDragDropEvent
+{
+    Enter = 0,
+    Over = 1,
+    Drop = 2,
+    Leave = 3,
+}
+```
+
+## Additional Delegates (Phase 3+)
+
+```csharp
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+internal delegate void PageLoadCallbackNative(
+    IntPtr window,
+    IntPtr url,
+    IntPtr userData);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+internal delegate void TitleChangedCallbackNative(
+    IntPtr window,
+    IntPtr title,
+    IntPtr userData);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+[return: MarshalAs(UnmanagedType.U1)]
+internal delegate bool DownloadStartedCallbackNative(
+    IntPtr window,
+    IntPtr url,
+    IntPtr suggestedFilename,
+    IntPtr userData);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+internal delegate void DownloadCompletedCallbackNative(
+    IntPtr window,
+    IntPtr path,
+    [MarshalAs(UnmanagedType.U1)] bool success,
+    IntPtr userData);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+[return: MarshalAs(UnmanagedType.U1)]
+internal delegate bool DragDropCallbackNative(
+    IntPtr window,
+    WryDragDropEvent eventType,
+    IntPtr paths,      // Array of UTF-8 string pointers
+    nuint pathCount,
+    int x,
+    int y,
+    IntPtr userData);
+
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+internal delegate void InvokeCallbackNative(IntPtr userData);
+```
+
+## Additional P/Invoke Declarations (Phase 3+)
+
+```csharp
+internal static partial class WryInterop
+{
+    // ===== Dialogs =====
+
+    [LibraryImport(DllName, StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial WryFileDialogResult wry_dialog_open_file(
+        IntPtr window,
+        string? title,
+        string? defaultPath,
+        WryFileFilter* filters,
+        nuint filterCount,
+        [MarshalAs(UnmanagedType.U1)] bool multiSelect);
+
+    [LibraryImport(DllName, StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial WryFileDialogResult wry_dialog_open_folder(
+        IntPtr window,
+        string? title,
+        string? defaultPath,
+        [MarshalAs(UnmanagedType.U1)] bool multiSelect);
+
+    [LibraryImport(DllName, StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial IntPtr wry_dialog_save_file(
+        IntPtr window,
+        string? title,
+        string? defaultPath,
+        WryFileFilter* filters,
+        nuint filterCount);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial void wry_dialog_result_free(WryFileDialogResult result);
+
+    [LibraryImport(DllName, StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial WryMessageBoxResult wry_dialog_message(
+        IntPtr window,
+        string title,
+        string message,
+        WryMessageBoxButtons buttons,
+        WryMessageBoxIcon icon);
+
+    // ===== Notifications =====
+
+    [LibraryImport(DllName, StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial WryResult wry_notification_show(
+        IntPtr app,
+        string title,
+        string body,
+        string? iconPath);
+
+    // ===== Monitor/Display =====
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial WryMonitorList wry_get_monitors(IntPtr app);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial void wry_monitors_free(WryMonitorList list);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial WryMonitor wry_get_primary_monitor(IntPtr app);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial double wry_window_get_scale_factor(IntPtr window);
+
+    // ===== Window Icon =====
+
+    [LibraryImport(DllName, StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial WryResult wry_window_set_icon_file(IntPtr window, string path);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial WryResult wry_window_set_icon_rgba(
+        IntPtr window,
+        byte* data,
+        uint width,
+        uint height);
+
+    // ===== Thread Dispatch =====
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial void wry_invoke(
+        IntPtr app,
+        InvokeCallbackNative callback,
+        IntPtr userData);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial void wry_invoke_sync(
+        IntPtr app,
+        InvokeCallbackNative callback,
+        IntPtr userData);
+
+    // ===== Additional Webview =====
+
+    [LibraryImport(DllName, StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial WryResult wry_webview_add_init_script(IntPtr window, string script);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial void wry_webview_set_context_menu_enabled(
+        IntPtr window,
+        [MarshalAs(UnmanagedType.U1)] bool enabled);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial void wry_webview_set_clipboard_enabled(
+        IntPtr window,
+        [MarshalAs(UnmanagedType.U1)] bool enabled);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial WryResult wry_webview_clear_data(IntPtr window);
+
+    // ===== Additional Callbacks =====
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial void wry_window_set_page_load_callback(
+        IntPtr window,
+        PageLoadCallbackNative callback,
+        IntPtr userData);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial void wry_window_set_title_changed_callback(
+        IntPtr window,
+        TitleChangedCallbackNative callback,
+        IntPtr userData);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial void wry_window_set_download_started_callback(
+        IntPtr window,
+        DownloadStartedCallbackNative callback,
+        IntPtr userData);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial void wry_window_set_download_completed_callback(
+        IntPtr window,
+        DownloadCompletedCallbackNative callback,
+        IntPtr userData);
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial void wry_window_set_drag_drop_callback(
+        IntPtr window,
+        DragDropCallbackNative callback,
+        IntPtr userData);
+
+    // ===== Capabilities =====
+
+    [LibraryImport(DllName)]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    internal static partial WryCapabilities wry_get_capabilities();
+}
+```
+
+## Safe Wrapper for Dialog Results
+
+```csharp
+/// <summary>
+/// Safe wrapper for file dialog results
+/// </summary>
+internal readonly struct FileDialogResult : IDisposable
+{
+    private readonly WryFileDialogResult _result;
+
+    public FileDialogResult(WryFileDialogResult result) => _result = result;
+
+    public string[] GetPaths()
+    {
+        if (_result.Count == 0 || _result.Paths == IntPtr.Zero)
+            return Array.Empty<string>();
+
+        var paths = new string[(int)_result.Count];
+        for (int i = 0; i < (int)_result.Count; i++)
+        {
+            var ptr = Marshal.ReadIntPtr(_result.Paths, i * IntPtr.Size);
+            paths[i] = Marshal.PtrToStringUTF8(ptr) ?? string.Empty;
+        }
+        return paths;
+    }
+
+    public void Dispose()
+    {
+        if (_result.Paths != IntPtr.Zero)
+        {
+            WryInterop.wry_dialog_result_free(_result);
+        }
+    }
+}
+
+/// <summary>
+/// Safe wrapper for monitor list
+/// </summary>
+internal readonly struct MonitorListResult : IDisposable
+{
+    private readonly WryMonitorList _list;
+
+    public MonitorListResult(WryMonitorList list) => _list = list;
+
+    public Monitor[] GetMonitors()
+    {
+        if (_list.Count == 0 || _list.Monitors == IntPtr.Zero)
+            return Array.Empty<Monitor>();
+
+        var monitors = new Monitor[(int)_list.Count];
+        int structSize = Marshal.SizeOf<WryMonitor>();
+
+        for (int i = 0; i < (int)_list.Count; i++)
+        {
+            var ptr = IntPtr.Add(_list.Monitors, i * structSize);
+            var native = Marshal.PtrToStructure<WryMonitor>(ptr);
+            monitors[i] = new Monitor(
+                new Rectangle(native.X, native.Y, (int)native.Width, (int)native.Height),
+                new Rectangle(native.WorkX, native.WorkY, (int)native.WorkWidth, (int)native.WorkHeight),
+                native.ScaleFactor);
+        }
+        return monitors;
+    }
+
+    public void Dispose()
+    {
+        if (_list.Monitors != IntPtr.Zero)
+        {
+            WryInterop.wry_monitors_free(_list);
+        }
+    }
+}
+```
