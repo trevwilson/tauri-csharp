@@ -279,6 +279,49 @@ public partial class TauriWindow
         WindowCreated?.Invoke(this, null);
     }
 
+    /// <summary>
+    /// Delegate for navigation events that can be cancelled.
+    /// </summary>
+    /// <param name="sender">The TauriWindow instance</param>
+    /// <param name="url">The URL being navigated to</param>
+    /// <returns>True to allow navigation, false to cancel</returns>
+    public delegate bool NavigationDelegate(object sender, string url);
+
+    public event NavigationDelegate? NavigationStarting;
+
+    /// <summary>
+    /// Registers user-defined handler methods to receive callbacks when navigation starts.
+    /// Handler can return false to cancel the navigation.
+    /// </summary>
+    /// <returns>
+    /// Returns the current <see cref="TauriWindow"/> instance.
+    /// </returns>
+    /// <param name="handler"><see cref="NavigationDelegate"/></param>
+    public TauriWindow RegisterNavigationStartingHandler(NavigationDelegate handler)
+    {
+        NavigationStarting += handler;
+        return this;
+    }
+
+    /// <summary>
+    /// Invokes registered user-defined handler methods when navigation starts.
+    /// </summary>
+    /// <param name="url">The URL being navigated to</param>
+    /// <returns>True to allow navigation, false to cancel</returns>
+    internal bool OnNavigationStarting(string url)
+    {
+        var handlers = NavigationStarting;
+        if (handlers == null)
+            return true; // Allow by default
+
+        // Invoke all handlers; if any return false, cancel navigation
+        foreach (NavigationDelegate handler in handlers.GetInvocationList())
+        {
+            if (!handler(this, url))
+                return false;
+        }
+        return true;
+    }
 
     //NOTE: There is 1 callback from C++ to C# which is automatically registered. The .NET callback appropriate for the custom scheme is handled in OnCustomScheme().
 

@@ -43,6 +43,7 @@ public partial class TauriWindow : IDisposable
     private WindowResizedCallbackNative? _resizedCallback;
     private WindowMovedCallbackNative? _movedCallback;
     private WindowFocusCallbackNative? _focusCallback;
+    private NavigationCallbackNative? _navigationCallback;
 
     // ========================================================================
     // wry-ffi specific implementation methods
@@ -222,6 +223,11 @@ public partial class TauriWindow : IDisposable
         _focusCallback = OnWryFocusChanged;
         _callbackRegistry.Register(_wryWindow, _focusCallback);
         WryInterop.WindowSetFocusCallback(_wryWindow, _focusCallback, IntPtr.Zero);
+
+        // Navigation callback
+        _navigationCallback = OnWryNavigationStarting;
+        _callbackRegistry.Register(_wryWindow, _navigationCallback);
+        WryInterop.WindowSetNavigationCallback(_wryWindow, _navigationCallback, IntPtr.Zero);
     }
 
     // ========================================================================
@@ -260,6 +266,15 @@ public partial class TauriWindow : IDisposable
             OnFocusIn();
         else
             OnFocusOut();
+    }
+
+    private bool OnWryNavigationStarting(IntPtr window, IntPtr urlPtr, IntPtr userData)
+    {
+        var url = urlPtr != IntPtr.Zero ? Marshal.PtrToStringUTF8(urlPtr) : null;
+        if (url == null)
+            return true; // Allow navigation if URL is null
+
+        return OnNavigationStarting(url);
     }
 
     // ========================================================================

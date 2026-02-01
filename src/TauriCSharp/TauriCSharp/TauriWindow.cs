@@ -1004,6 +1004,23 @@ public partial class TauriWindow
     }
 
     /// <summary>
+    /// Gets the current URL loaded in the webview.
+    /// </summary>
+    /// <remarks>
+    /// Returns null if the window is not yet initialized.
+    /// </remarks>
+    public string? CurrentUrl
+    {
+        get
+        {
+            if (_nativeInstance == IntPtr.Zero)
+                return null;
+            using var nativeStr = new WryNativeString(WryInterop.WebViewGetUrl(_nativeInstance));
+            return nativeStr.Value;
+        }
+    }
+
+    /// <summary>
     /// Gets or sets the local path to store temp files for browser control.
     /// Default is the user's AppDataLocal folder.
     /// </summary>
@@ -2136,6 +2153,31 @@ public partial class TauriWindow
         return this;
     }
 
+    /// <summary>
+    /// Restores the window from maximized or minimized state to normal.
+    /// </summary>
+    /// <returns>
+    /// Returns the current <see cref="TauriWindow"/> instance.
+    /// </returns>
+    /// <exception cref="TauriInitializationException">
+    /// Thrown when the window is not initialized.
+    /// </exception>
+    public TauriWindow Restore()
+    {
+        Log(".Restore()");
+        if (_nativeInstance == IntPtr.Zero)
+            throw new TauriInitializationException("Restore cannot be called until the window is initialized.");
+
+        Invoke(() =>
+        {
+            // Restore from maximized state
+            WryInterop.WindowUnmaximize(_nativeInstance);
+            // Restore from minimized state - set visible (shows the window)
+            WryInterop.WindowSetVisible(_nativeInstance, true);
+        });
+        return this;
+    }
+
     ///<summary>Native window maximum Width and Height in pixels.</summary>
     public TauriWindow SetMinSize(int minWidth, int minHeight)
     {
@@ -2488,6 +2530,123 @@ public partial class TauriWindow
                 throw new TauriInitializationException("SendWebMessage cannot be called until the window is initialized.");
             WryInterop.WebViewSendMessage(_nativeInstance, message).ThrowIfError();
         });
+    }
+
+    /// <summary>
+    /// Executes JavaScript in the webview context.
+    /// </summary>
+    /// <remarks>
+    /// The script is executed asynchronously in the webview. To get return values,
+    /// use the message passing API instead.
+    /// </remarks>
+    /// <exception cref="TauriInitializationException">
+    /// Thrown when the window is not initialized.
+    /// </exception>
+    /// <param name="script">JavaScript code to execute</param>
+    public void ExecuteScript(string script)
+    {
+        Log($".ExecuteScript({script})");
+        if (_nativeInstance == IntPtr.Zero)
+            throw new TauriInitializationException("ExecuteScript cannot be called until the window is initialized.");
+        WryInterop.WebViewEvaluateScript(_nativeInstance, script).ThrowIfError();
+    }
+
+    /// <summary>
+    /// Executes JavaScript in the webview context asynchronously.
+    /// </summary>
+    /// <param name="script">JavaScript code to execute</param>
+    public async Task ExecuteScriptAsync(string script)
+    {
+        await Task.Run(() => ExecuteScript(script));
+    }
+
+    /// <summary>
+    /// Opens the browser developer tools panel.
+    /// </summary>
+    /// <remarks>
+    /// DevTools must be enabled via <see cref="DevToolsEnabled"/> before window creation
+    /// for this method to work.
+    /// </remarks>
+    /// <exception cref="TauriInitializationException">
+    /// Thrown when the window is not initialized.
+    /// </exception>
+    public void OpenDevTools()
+    {
+        Log(".OpenDevTools()");
+        if (_nativeInstance == IntPtr.Zero)
+            throw new TauriInitializationException("OpenDevTools cannot be called until the window is initialized.");
+        if (!_startupParameters.DevToolsEnabled)
+            Log("Warning: DevTools were not enabled at window creation time");
+        Invoke(() => WryInterop.WebViewOpenDevtools(_nativeInstance));
+    }
+
+    /// <summary>
+    /// Closes the browser developer tools panel.
+    /// </summary>
+    /// <exception cref="TauriInitializationException">
+    /// Thrown when the window is not initialized.
+    /// </exception>
+    public void CloseDevTools()
+    {
+        Log(".CloseDevTools()");
+        if (_nativeInstance == IntPtr.Zero)
+            throw new TauriInitializationException("CloseDevTools cannot be called until the window is initialized.");
+        Invoke(() => WryInterop.WebViewCloseDevtools(_nativeInstance));
+    }
+
+    /// <summary>
+    /// Shows the window (makes it visible).
+    /// </summary>
+    /// <exception cref="TauriInitializationException">
+    /// Thrown when the window is not initialized.
+    /// </exception>
+    public void Show()
+    {
+        Log(".Show()");
+        if (_nativeInstance == IntPtr.Zero)
+            throw new TauriInitializationException("Show cannot be called until the window is initialized.");
+        Invoke(() => WryInterop.WindowSetVisible(_nativeInstance, true));
+    }
+
+    /// <summary>
+    /// Hides the window (makes it invisible).
+    /// </summary>
+    /// <exception cref="TauriInitializationException">
+    /// Thrown when the window is not initialized.
+    /// </exception>
+    public void Hide()
+    {
+        Log(".Hide()");
+        if (_nativeInstance == IntPtr.Zero)
+            throw new TauriInitializationException("Hide cannot be called until the window is initialized.");
+        Invoke(() => WryInterop.WindowSetVisible(_nativeInstance, false));
+    }
+
+    /// <summary>
+    /// Gets whether the window is currently visible.
+    /// </summary>
+    public bool IsVisible
+    {
+        get
+        {
+            if (_nativeInstance == IntPtr.Zero)
+                return false;
+            return WryInterop.WindowIsVisible(_nativeInstance);
+        }
+    }
+
+    /// <summary>
+    /// Brings the window to the front and gives it focus.
+    /// </summary>
+    /// <exception cref="TauriInitializationException">
+    /// Thrown when the window is not initialized.
+    /// </exception>
+    public void Focus()
+    {
+        Log(".Focus()");
+        if (_nativeInstance == IntPtr.Zero)
+            throw new TauriInitializationException("Focus cannot be called until the window is initialized.");
+        Invoke(() => WryInterop.WindowFocus(_nativeInstance));
     }
 
     /// <summary>
