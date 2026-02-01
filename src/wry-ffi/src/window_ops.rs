@@ -213,6 +213,8 @@ pub unsafe extern "C" fn wry_window_focus(window: WryWindow) {
 }
 
 /// Close window
+///
+/// This function is thread-safe - it dispatches via the event loop.
 #[no_mangle]
 pub unsafe extern "C" fn wry_window_close(window: WryWindow) {
     let state = match get_window_state(window) {
@@ -220,9 +222,7 @@ pub unsafe extern "C" fn wry_window_close(window: WryWindow) {
         None => return,
     };
 
-    log::debug!("Closing window");
-    // Note: This doesn't actually close the window immediately,
-    // it just hides it. The actual removal happens in the event loop
-    // when CloseRequested is received.
-    state.window.set_visible(false);
+    log::debug!("Closing window via event loop");
+    // Request destruction via event loop (thread-safe, actually removes window)
+    state.request_destroy();
 }

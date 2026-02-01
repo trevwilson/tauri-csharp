@@ -99,7 +99,7 @@ pub unsafe extern "C" fn wry_webview_evaluate_script(
 
 /// Send message to JavaScript (calls window.tauri.__receive)
 ///
-/// This function is thread-safe - it can be called from any thread.
+/// This function is thread-safe - it dispatches via the event loop.
 #[no_mangle]
 pub unsafe extern "C" fn wry_webview_send_message(
     window: WryWindow,
@@ -115,23 +115,12 @@ pub unsafe extern "C" fn wry_webview_send_message(
         None => return error_result(WryErrorCode::InvalidParameter, "Null or invalid message"),
     };
 
-    log::debug!("Sending message to webview: {}", message);
+    log::debug!("Sending message to webview (via event loop): {}", message);
 
-    let webview = match &state.webview {
-        Some(wv) => wv,
-        None => return error_result(WryErrorCode::WebviewCreationFailed, "No webview available"),
-    };
+    // Use thread-safe dispatch via event loop proxy
+    state.send_message(message);
 
-    // Call the JavaScript receive function
-    let script = format!(
-        "if(window.tauri && window.tauri.__receive) {{ window.tauri.__receive({:?}); }}",
-        message
-    );
-
-    match webview.evaluate_script(&script) {
-        Ok(()) => WryResult::ok(),
-        Err(e) => error_result(WryErrorCode::ScriptError, format!("Failed to send message: {}", e)),
-    }
+    WryResult::ok()
 }
 
 /// Get current URL (caller must free with wry_string_free)

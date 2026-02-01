@@ -112,7 +112,7 @@ public partial class TauriWindow
     private static partial void Photino_GetPosition(IntPtr instance, out int x, out int y);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
-    private static extern void Photino_GetResizable(IntPtr instance, out bool resizable);
+    private static extern void Photino_GetResizable(IntPtr instance, [MarshalAs(UnmanagedType.I1)] out bool resizable);
 
     [LibraryImport(DLL_NAME, SetLastError = true)]
     [UnmanagedCallConv(CallConvs = new Type[] { typeof(System.Runtime.CompilerServices.CallConvCdecl) })]
@@ -135,10 +135,10 @@ public partial class TauriWindow
     private static partial void Photino_GetZoom(IntPtr instance, out int zoom);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
-    private static extern void Photino_GetMaximized(IntPtr instance, out bool maximized);
+    private static extern void Photino_GetMaximized(IntPtr instance, [MarshalAs(UnmanagedType.I1)] out bool maximized);
 
     [DllImport(DLL_NAME, CallingConvention = CallingConvention.Cdecl, SetLastError = true)]
-    private static extern void Photino_GetMinimized(IntPtr instance, out bool minimized);
+    private static extern void Photino_GetMinimized(IntPtr instance, [MarshalAs(UnmanagedType.I1)] out bool minimized);
 
 
     //MARSHAL CALLS FROM Non-UI Thread to UI Thread

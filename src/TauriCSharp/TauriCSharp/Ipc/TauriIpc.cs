@@ -176,6 +176,9 @@ public class TauriIpc : IDisposable
         if (_disposed) return;
         _disposed = true;
 
+        // Unsubscribe from window events to prevent leaks/double handling
+        _window.WebMessageReceived -= OnWebMessageReceived;
+
         // Cancel all pending requests
         foreach (var pending in _pendingRequests.Values)
         {

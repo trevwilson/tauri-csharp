@@ -5,10 +5,11 @@
 use std::os::raw::c_void;
 
 use tao::dpi::{LogicalPosition, LogicalSize};
+use tao::event_loop::EventLoopProxy;
 use tao::window::{Window, WindowBuilder, WindowId};
 use wry::{WebView, WebViewBuilder};
 
-use crate::app::AppState;
+use crate::app::{AppState, UserEvent};
 use crate::callbacks::WindowCallbacks;
 use crate::error::set_last_error;
 use crate::string::c_str_to_string;
@@ -24,12 +25,28 @@ pub struct WindowState {
     pub webview: Option<WebView>,
     /// Registered callbacks
     pub callbacks: WindowCallbacks,
+    /// Event loop proxy for thread-safe operations
+    pub event_loop_proxy: EventLoopProxy<UserEvent>,
 }
 
 impl WindowState {
     /// Get the window handle as a raw pointer
+    /// Since WindowState is stored in Box, this pointer is stable
     pub fn as_ptr(&self) -> WryWindow {
         self as *const WindowState as *mut c_void
+    }
+
+    /// Request destruction via event loop (thread-safe)
+    pub fn request_destroy(&self) {
+        let _ = self.event_loop_proxy.send_event(UserEvent::DestroyWindow(self.id));
+    }
+
+    /// Send a message to the webview via event loop (thread-safe)
+    pub fn send_message(&self, message: String) {
+        let _ = self.event_loop_proxy.send_event(UserEvent::WebViewMessage {
+            window_id: self.id,
+            message,
+        });
     }
 }
 
@@ -121,28 +138,33 @@ pub unsafe extern "C" fn wry_window_create(
     let window_id = window.id();
     log::debug!("Window created with id: {:?}", window_id);
 
-    // Build webview
-    let webview = create_webview_for_window(&window, params, state);
+    // Build webview with IPC handler wired to callbacks
+    let proxy = state.event_loop_proxy.clone();
+    let webview = create_webview_for_window(&window, params, window_id, proxy.clone());
 
-    let window_state = WindowState {
+    let window_state = Box::new(WindowState {
         id: window_id,
         window,
         webview,
-        callbacks: WindowCallbacks::default(),
-    };
+        callbacks: WindowCallbacks::new(window_id),
+        event_loop_proxy: proxy,
+    });
 
-    // Store and return
+    // Get pointer before moving into hashmap
+    let ptr = window_state.as_ptr();
+
+    // Store in app state
     state.windows.insert(window_id, window_state);
 
-    // Return pointer to the stored WindowState
-    state.windows.get(&window_id).unwrap().as_ptr()
+    ptr
 }
 
 /// Create a webview for a window
 fn create_webview_for_window(
     window: &Window,
     params: &WryWindowParams,
-    _state: &AppState,
+    window_id: WindowId,
+    _proxy: EventLoopProxy<UserEvent>,
 ) -> Option<WebView> {
     let mut builder = WebViewBuilder::new();
 
@@ -181,10 +203,17 @@ fn create_webview_for_window(
     }
 
     // Add IPC handler for messages from JavaScript
+    // Note: We can't directly access callbacks here since WindowState doesn't exist yet.
+    // The IPC messages need to be routed through a registry or the event loop.
+    // For now, we log and the actual callback invocation happens via the callbacks system.
+    let wid = window_id;
     builder = builder.with_ipc_handler(move |req| {
         let body = req.body();
-        log::debug!("IPC message received: {}", body);
-        // TODO: Connect to window callbacks for message handling
+        log::debug!("IPC message received from window {:?}: {}", wid, body);
+        // Callback invocation is handled by WindowCallbacks which has access to the window pointer
+        // The C# side needs to set up callbacks that will be invoked
+        // For direct callback access, we'd need a global callback registry
+        crate::callbacks::invoke_message_callback(wid, body);
     });
 
     // Build the webview
@@ -220,6 +249,8 @@ fn create_webview_for_window(
 
 /// Destroy window and free resources
 ///
+/// This function is thread-safe - it dispatches via the event loop.
+///
 /// # Safety
 /// The window handle must not be used after this call.
 #[no_mangle]
@@ -229,12 +260,10 @@ pub unsafe extern "C" fn wry_window_destroy(window: WryWindow) {
     }
 
     log::info!("wry_window_destroy called");
-
-    // We don't actually free here - the window is owned by AppState
-    // Instead, we just remove it from the map when we have app access
-    // For now, just mark it as needing destruction
     let window_state = &*(window as *const WindowState);
-    log::debug!("Window {:?} marked for destruction", window_state.id);
+
+    // Request destruction via event loop (thread-safe)
+    window_state.request_destroy();
 }
 
 /// Helper to get WindowState from handle with validation

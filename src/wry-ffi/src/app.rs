@@ -22,8 +22,8 @@ pub enum UserEvent {
     InvokeCallback(Box<dyn FnOnce() + Send>),
     /// Send a message to a webview (thread-safe)
     WebViewMessage { window_id: WindowId, message: String },
-    /// Close a specific window
-    CloseWindow(WindowId),
+    /// Close/destroy a specific window
+    DestroyWindow(WindowId),
 }
 
 impl std::fmt::Debug for UserEvent {
@@ -34,7 +34,7 @@ impl std::fmt::Debug for UserEvent {
             UserEvent::WebViewMessage { window_id, message } => {
                 write!(f, "WebViewMessage {{ window_id: {:?}, message: {:?} }}", window_id, message)
             }
-            UserEvent::CloseWindow(id) => write!(f, "CloseWindow({:?})", id),
+            UserEvent::DestroyWindow(id) => write!(f, "DestroyWindow({:?})", id),
         }
     }
 }
@@ -45,8 +45,8 @@ pub struct AppState {
     pub event_loop: Option<EventLoop<UserEvent>>,
     /// Proxy for sending events from other threads
     pub event_loop_proxy: EventLoopProxy<UserEvent>,
-    /// All windows managed by this app
-    pub windows: HashMap<WindowId, WindowState>,
+    /// All windows managed by this app - boxed for stable addresses
+    pub windows: HashMap<WindowId, Box<WindowState>>,
     /// Custom protocol handlers (scheme -> handler)
     pub custom_protocols: HashMap<String, ProtocolHandler>,
     /// Whether we should quit
@@ -80,12 +80,12 @@ impl AppState {
 
     /// Get a window by ID
     pub fn get_window(&self, id: WindowId) -> Option<&WindowState> {
-        self.windows.get(&id)
+        self.windows.get(&id).map(|b| b.as_ref())
     }
 
     /// Get a mutable window by ID
     pub fn get_window_mut(&mut self, id: WindowId) -> Option<&mut WindowState> {
-        self.windows.get_mut(&id)
+        self.windows.get_mut(&id).map(|b| b.as_mut())
     }
 
     /// Request quit
@@ -234,8 +234,8 @@ fn handle_user_event(state: &mut AppState, event: UserEvent, control_flow: &mut 
             }
         }
 
-        UserEvent::CloseWindow(window_id) => {
-            log::debug!("Close window requested: {:?}", window_id);
+        UserEvent::DestroyWindow(window_id) => {
+            log::debug!("Destroy window requested: {:?}", window_id);
             state.windows.remove(&window_id);
         }
     }
@@ -248,28 +248,32 @@ fn handle_window_event(
     event: WindowEvent,
     _control_flow: &mut ControlFlow,
 ) {
+    // For CloseRequested, we need to check callback first, then maybe remove
+    if let WindowEvent::CloseRequested = &event {
+        let should_close = state
+            .windows
+            .get(&window_id)
+            .map(|ws| ws.callbacks.call_closing())
+            .unwrap_or(true);
+
+        if should_close {
+            log::debug!("Window close requested and approved: {:?}", window_id);
+            state.windows.remove(&window_id);
+        }
+        return;
+    }
+
+    // For other events, get mutable reference
     let window_state = match state.windows.get_mut(&window_id) {
         Some(ws) => ws,
         None => return,
     };
 
     match event {
-        WindowEvent::CloseRequested => {
-            log::debug!("Window close requested: {:?}", window_id);
-
-            // Call closing callback if set
-            let should_close = window_state.callbacks.call_closing();
-
-            if should_close {
-                state.windows.remove(&window_id);
-            }
-        }
-
         WindowEvent::Resized(size) => {
             let (width, height) = size.into();
             log::debug!("Window resized: {:?} -> {}x{}", window_id, width, height);
             window_state.callbacks.call_resized(width, height);
-            // Webview resizing is handled automatically by the window/GTK container
         }
 
         WindowEvent::Moved(position) => {
