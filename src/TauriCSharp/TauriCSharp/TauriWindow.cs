@@ -1,6 +1,6 @@
-// Originally from TauriCSharp.NET (https://github.com/tryphotino/photino.NET)
+// Originally from Photino.NET (https://github.com/tryphotino/photino.NET)
 // Modified by tauri-csharp project - 2025
-// Changes: Namespace and type renames from TauriCSharp to Tauri
+// Changes: Namespace and type renames from Photino to Tauri
 
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -112,7 +112,7 @@ public partial class TauriWindow
                     throw new ApplicationException("The TauriCSharp window is not initialized yet");
 
                 var handle = IntPtr.Zero;
-                Invoke(() => handle = TauriCSharp_getHwnd_win32(_nativeInstance));
+                Invoke(() => handle = Photino_getHwnd_win32(_nativeInstance));
                 return handle;
             }
             else
@@ -146,7 +146,7 @@ public partial class TauriWindow
                 return 1;
             }
 
-            Invoke(() => TauriCSharp_GetAllMonitors(_nativeInstance, callback));
+            Invoke(() => Photino_GetAllMonitors(_nativeInstance, callback));
 
             return monitors;
         }
@@ -184,7 +184,7 @@ public partial class TauriWindow
                 throw new ApplicationException("The TauriCSharp window hasn't been initialized yet.");
 
             uint dpi = 0;
-            Invoke(() => dpi = TauriCSharp_GetScreenDpi(_nativeInstance));
+            Invoke(() => dpi = Photino_GetScreenDpi(_nativeInstance));
             return dpi;
         }
     }
@@ -220,7 +220,7 @@ public partial class TauriWindow
                     _startupParameters.CenterOnInitialize = value;
             }
             else
-                Invoke(() => TauriCSharp_Center(_nativeInstance));
+                Invoke(() => Photino_Center(_nativeInstance));
         }
     }
 
@@ -270,7 +270,7 @@ public partial class TauriWindow
                 return _startupParameters.Transparent;
 
             var enabled = false;
-            Invoke(() => TauriCSharp_GetTransparentEnabled(_nativeInstance, out enabled));
+            Invoke(() => Photino_GetTransparentEnabled(_nativeInstance, out enabled));
             return enabled;
         }
         set
@@ -285,8 +285,8 @@ public partial class TauriWindow
                         throw new ApplicationException("Transparent can only be set on Windows before the native window is instantiated.");
                     else
                     {
-                        Log($"Invoking TauriCSharp_SetTransparentEnabled({value})");
-                        Invoke(() => TauriCSharp_SetTransparentEnabled(_nativeInstance, value));
+                        Log($"Invoking Photino_SetTransparentEnabled({value})");
+                        Invoke(() => Photino_SetTransparentEnabled(_nativeInstance, value));
                     }
                 }
             }
@@ -305,7 +305,7 @@ public partial class TauriWindow
                 return _startupParameters.ContextMenuEnabled;
 
             var enabled = false;
-            Invoke(() => TauriCSharp_GetContextMenuEnabled(_nativeInstance, out enabled));
+            Invoke(() => Photino_GetContextMenuEnabled(_nativeInstance, out enabled));
             return enabled;
         }
         set
@@ -315,7 +315,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.ContextMenuEnabled = value;
                 else
-                    Invoke(() => TauriCSharp_SetContextMenuEnabled(_nativeInstance, value));
+                    Invoke(() => Photino_SetContextMenuEnabled(_nativeInstance, value));
             }
         }
     }
@@ -332,7 +332,7 @@ public partial class TauriWindow
                 return _startupParameters.DevToolsEnabled;
 
             var enabled = false;
-            Invoke(() => TauriCSharp_GetDevToolsEnabled(_nativeInstance, out enabled));
+            Invoke(() => Photino_GetDevToolsEnabled(_nativeInstance, out enabled));
             return enabled;
         }
         set
@@ -342,7 +342,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.DevToolsEnabled = value;
                 else
-                    Invoke(() => TauriCSharp_SetDevToolsEnabled(_nativeInstance, value));
+                    Invoke(() => Photino_SetDevToolsEnabled(_nativeInstance, value));
             }
         }
     }
@@ -355,7 +355,7 @@ public partial class TauriWindow
                 return _startupParameters.MediaAutoplayEnabled;
 
             var enabled = false;
-            Invoke(() => TauriCSharp_GetMediaAutoplayEnabled(_nativeInstance, out enabled));
+            Invoke(() => Photino_GetMediaAutoplayEnabled(_nativeInstance, out enabled));
             return enabled;
         }
         set
@@ -380,7 +380,7 @@ public partial class TauriWindow
             var userAgent = string.Empty;
             Invoke(() =>
             {
-                var ptr = TauriCSharp_GetUserAgent(_nativeInstance);
+                var ptr = Photino_GetUserAgent(_nativeInstance);
                 userAgent = Marshal.PtrToStringAuto(ptr);
             });
             return userAgent;
@@ -405,7 +405,7 @@ public partial class TauriWindow
                 return _startupParameters.FileSystemAccessEnabled;
 
             var enabled = false;
-            Invoke(() => TauriCSharp_GetFileSystemAccessEnabled(_nativeInstance, out enabled));
+            Invoke(() => Photino_GetFileSystemAccessEnabled(_nativeInstance, out enabled));
             return enabled;
         }
         set
@@ -428,7 +428,7 @@ public partial class TauriWindow
                 return _startupParameters.WebSecurityEnabled;
 
             var enabled = true;
-            Invoke(() => TauriCSharp_GetWebSecurityEnabled(_nativeInstance, out enabled));
+            Invoke(() => Photino_GetWebSecurityEnabled(_nativeInstance, out enabled));
             return enabled;
         }
         set
@@ -451,7 +451,7 @@ public partial class TauriWindow
                 return _startupParameters.JavascriptClipboardAccessEnabled;
 
             var enabled = true;
-            Invoke(() => TauriCSharp_GetJavascriptClipboardAccessEnabled(_nativeInstance, out enabled));
+            Invoke(() => Photino_GetJavascriptClipboardAccessEnabled(_nativeInstance, out enabled));
             return enabled;
         }
         set
@@ -474,7 +474,7 @@ public partial class TauriWindow
                 return _startupParameters.MediaStreamEnabled;
 
             var enabled = true;
-            Invoke(() => TauriCSharp_GetMediaStreamEnabled(_nativeInstance, out enabled));
+            Invoke(() => Photino_GetMediaStreamEnabled(_nativeInstance, out enabled));
             return enabled;
         }
         set
@@ -497,7 +497,7 @@ public partial class TauriWindow
                 return _startupParameters.SmoothScrollingEnabled;
 
             var enabled = false;
-            Invoke(() => TauriCSharp_GetSmoothScrollingEnabled(_nativeInstance, out enabled));
+            Invoke(() => Photino_GetSmoothScrollingEnabled(_nativeInstance, out enabled));
             return enabled;
         }
         set
@@ -520,7 +520,7 @@ public partial class TauriWindow
                 return _startupParameters.IgnoreCertificateErrorsEnabled;
 
             var enabled = false;
-            Invoke(() => TauriCSharp_GetIgnoreCertificateErrorsEnabled(_nativeInstance, out enabled));
+            Invoke(() => Photino_GetIgnoreCertificateErrorsEnabled(_nativeInstance, out enabled));
             return enabled;
         }
         set
@@ -543,7 +543,7 @@ public partial class TauriWindow
                 return _startupParameters.NotificationsEnabled;
 
             var enabled = false;
-            Invoke(() => TauriCSharp_GetNotificationsEnabled(_nativeInstance, out enabled));
+            Invoke(() => Photino_GetNotificationsEnabled(_nativeInstance, out enabled));
             return enabled;
         }
         set
@@ -572,7 +572,7 @@ public partial class TauriWindow
                 return _startupParameters.FullScreen;
 
             var fullScreen = false;
-            Invoke(() => TauriCSharp_GetFullScreen(_nativeInstance, out fullScreen));
+            Invoke(() => Photino_GetFullScreen(_nativeInstance, out fullScreen));
             return fullScreen;
         }
         set
@@ -582,7 +582,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.FullScreen = value;
                 else
-                    Invoke(() => TauriCSharp_SetFullScreen(_nativeInstance, value));
+                    Invoke(() => Photino_SetFullScreen(_nativeInstance, value));
             }
         }
     }
@@ -602,7 +602,7 @@ public partial class TauriWindow
                 return _startupParameters.GrantBrowserPermissions;
 
             var grant = false;
-            Invoke(() => TauriCSharp_GetGrantBrowserPermissions(_nativeInstance, out grant));
+            Invoke(() => Photino_GetGrantBrowserPermissions(_nativeInstance, out grant));
             return grant;
         }
         set
@@ -664,7 +664,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.WindowIconFile = _iconFile;
                 else
-                    Invoke(() => TauriCSharp_SetIconFile(_nativeInstance, _iconFile));
+                    Invoke(() => Photino_SetIconFile(_nativeInstance, _iconFile));
             }
         }
     }
@@ -683,7 +683,7 @@ public partial class TauriWindow
 
             var left = 0;
             var top = 0;
-            Invoke(() => TauriCSharp_GetPosition(_nativeInstance, out left, out top));
+            Invoke(() => Photino_GetPosition(_nativeInstance, out left, out top));
             return new Point(left, top);
         }
         set
@@ -696,7 +696,7 @@ public partial class TauriWindow
                     _startupParameters.Top = value.Y;
                 }
                 else
-                    Invoke(() => TauriCSharp_SetPosition(_nativeInstance, value.X, value.Y));
+                    Invoke(() => Photino_SetPosition(_nativeInstance, value.X, value.Y));
             }
         }
     }
@@ -729,7 +729,7 @@ public partial class TauriWindow
                 return _startupParameters.Maximized;
 
             bool maximized = false;
-            Invoke(() => TauriCSharp_GetMaximized(_nativeInstance, out maximized));
+            Invoke(() => Photino_GetMaximized(_nativeInstance, out maximized));
             return maximized;
         }
         set
@@ -739,7 +739,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Maximized = value;
                 else
-                    Invoke(() => TauriCSharp_SetMaximized(_nativeInstance, value));
+                    Invoke(() => Photino_SetMaximized(_nativeInstance, value));
             }
         }
     }
@@ -758,7 +758,7 @@ public partial class TauriWindow
                     _startupParameters.MaxHeight = value.Y;
                 }
                 else
-                    Invoke(() => TauriCSharp_SetMaxSize(_nativeInstance, value.X, value.Y));
+                    Invoke(() => Photino_SetMaxSize(_nativeInstance, value.X, value.Y));
             }
         }
     }
@@ -805,7 +805,7 @@ public partial class TauriWindow
                 return _startupParameters.Minimized;
 
             bool minimized = false;
-            Invoke(() => TauriCSharp_GetMinimized(_nativeInstance, out minimized));
+            Invoke(() => Photino_GetMinimized(_nativeInstance, out minimized));
             return minimized;
         }
         set
@@ -815,7 +815,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Minimized = value;
                 else
-                    Invoke(() => TauriCSharp_SetMinimized(_nativeInstance, value));
+                    Invoke(() => Photino_SetMinimized(_nativeInstance, value));
             }
         }
     }
@@ -834,7 +834,7 @@ public partial class TauriWindow
                     _startupParameters.MinHeight = value.Y;
                 }
                 else
-                    Invoke(() => TauriCSharp_SetMinSize(_nativeInstance, value.X, value.Y));
+                    Invoke(() => Photino_SetMinSize(_nativeInstance, value.X, value.Y));
             }
         }
     }
@@ -869,12 +869,12 @@ public partial class TauriWindow
         }
     }
 
-    private readonly TauriCSharpWindow _dotNetParent;
+    private readonly TauriWindow _dotNetParent;
     /// <summary>
-    /// Gets the reference to parent TauriCSharpWindow instance.
+    /// Gets the reference to parent TauriWindow instance.
     /// This property can only be set in the constructor and it is optional.
     /// </summary>
-    public TauriCSharpWindow Parent { get { return _dotNetParent; } }
+    public TauriWindow Parent { get { return _dotNetParent; } }
 
     /// <summary>
     /// Gets or sets whether the native window can be resized by the user.
@@ -888,7 +888,7 @@ public partial class TauriWindow
                 return _startupParameters.Resizable;
 
             var resizable = false;
-            Invoke(() => TauriCSharp_GetResizable(_nativeInstance, out resizable));
+            Invoke(() => Photino_GetResizable(_nativeInstance, out resizable));
             return resizable;
         }
         set
@@ -898,7 +898,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Resizable = value;
                 else
-                    Invoke(() => TauriCSharp_SetResizable(_nativeInstance, value));
+                    Invoke(() => Photino_SetResizable(_nativeInstance, value));
             }
         }
     }
@@ -917,7 +917,7 @@ public partial class TauriWindow
 
             var width = 0;
             var height = 0;
-            Invoke(() => TauriCSharp_GetSize(_nativeInstance, out width, out height));
+            Invoke(() => Photino_GetSize(_nativeInstance, out width, out height));
             return new Size(width, height);
         }
         set
@@ -930,7 +930,7 @@ public partial class TauriWindow
                     _startupParameters.Width = value.Width;
                 }
                 else
-                    Invoke(() => TauriCSharp_SetSize(_nativeInstance, value.Width, value.Height));
+                    Invoke(() => Photino_SetSize(_nativeInstance, value.Width, value.Height));
             }
         }
     }
@@ -1098,7 +1098,7 @@ public partial class TauriWindow
             var title = string.Empty;
             Invoke(() =>
             {
-                var ptr = TauriCSharp_GetTitle(_nativeInstance);
+                var ptr = Photino_GetTitle(_nativeInstance);
                 title = Marshal.PtrToStringAuto(ptr);
             });
             return title;
@@ -1114,7 +1114,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Title = value;
                 else
-                    Invoke(() => TauriCSharp_SetTitle(_nativeInstance, value));
+                    Invoke(() => Photino_SetTitle(_nativeInstance, value));
             }
         }
     }
@@ -1146,7 +1146,7 @@ public partial class TauriWindow
                 return _startupParameters.Topmost;
 
             var topmost = false;
-            Invoke(() => TauriCSharp_GetTopmost(_nativeInstance, out topmost));
+            Invoke(() => Photino_GetTopmost(_nativeInstance, out topmost));
             return topmost;
         }
         set
@@ -1156,7 +1156,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Topmost = value;
                 else
-                    Invoke(() => TauriCSharp_SetTopmost(_nativeInstance, value));
+                    Invoke(() => Photino_SetTopmost(_nativeInstance, value));
             }
         }
     }
@@ -1421,7 +1421,7 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Gets or sets the native browser control <see cref="TauriCSharpWindow.Zoom"/>.
+    /// Gets or sets the native browser control <see cref="TauriWindow.Zoom"/>.
     /// Default is 100.
     /// </summary>
     /// <example>100 = 100%, 50 = 50%</example>
@@ -1433,7 +1433,7 @@ public partial class TauriWindow
                 return _startupParameters.Zoom;
 
             var zoom = 0;
-            Invoke(() => TauriCSharp_GetZoom(_nativeInstance, out zoom));
+            Invoke(() => Photino_GetZoom(_nativeInstance, out zoom));
             return zoom;
         }
         set
@@ -1443,7 +1443,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Zoom = value;
                 else
-                    Invoke(() => TauriCSharp_SetZoom(_nativeInstance, value));
+                    Invoke(() => Photino_SetZoom(_nativeInstance, value));
             }
         }
     }
@@ -1460,14 +1460,14 @@ public partial class TauriWindow
 
     //CONSTRUCTOR
     /// <summary>
-    /// Initializes a new instance of the TauriCSharpWindow class.
+    /// Initializes a new instance of the TauriWindow class.
     /// </summary>
     /// <remarks>
     /// This class represents a native window with a native browser control taking up the entire client area.
     /// If a parent window is specified, this window will be created as a child of the specified parent window.
     /// </remarks>
-    /// <param name="parent">The parent TauriCSharpWindow. This is optional and defaults to null.</param>
-    public TauriCSharpWindow(TauriCSharpWindow parent = null)
+    /// <param name="parent">The parent TauriWindow. This is optional and defaults to null.</param>
+    public TauriWindow(TauriWindow parent = null)
     {
         _dotNetParent = parent;
         _managedThreadId = Environment.CurrentManagedThreadId;
@@ -1501,13 +1501,13 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="workItem">The delegate encapsulating a method / action to be executed in the UI thread.</param>
-    public TauriCSharpWindow Invoke(Action workItem)
+    public TauriWindow Invoke(Action workItem)
     {
         // If we're already on the UI thread, no need to dispatch
         if (Environment.CurrentManagedThreadId == _managedThreadId)
             workItem();
         else
-            TauriCSharp_Invoke(_nativeInstance, workItem.Invoke);
+            Photino_Invoke(_nativeInstance, workItem.Invoke);
         return this;
     }
 
@@ -1521,13 +1521,13 @@ public partial class TauriWindow
     /// Load() or LoadString() must be called before native window is initialized.
     /// </remarks>
     /// <param name="uri">A Uri pointing to the file or the URL to load.</param>
-    public TauriCSharpWindow Load(Uri uri)
+    public TauriWindow Load(Uri uri)
     {
         Log($".Load({uri})");
         if (_nativeInstance == IntPtr.Zero)
             _startupParameters.StartUrl = uri.ToString();
         else
-            Invoke(() => TauriCSharp_NavigateToUrl(_nativeInstance, uri.ToString()));
+            Invoke(() => Photino_NavigateToUrl(_nativeInstance, uri.ToString()));
         return this;
     }
 
@@ -1541,7 +1541,7 @@ public partial class TauriWindow
     /// Load() or LoadString() must be called before native window is initialized.
     /// </remarks>
     /// <param name="path">A path pointing to the ressource to load.</param>
-    public TauriCSharpWindow Load(string path)
+    public TauriWindow Load(string path)
     {
         Log($".Load({path})");
 
@@ -1583,14 +1583,14 @@ public partial class TauriWindow
     /// Load() or LoadString() must be called before native window is initialized.
     /// </remarks>
     /// <param name="content">Raw content (such as HTML)</param>
-    public TauriCSharpWindow LoadRawString(string content)
+    public TauriWindow LoadRawString(string content)
     {
         var shortContent = content.Length > 50 ? string.Concat(content.AsSpan(0, 50), "...") : content;
         Log($".LoadRawString({shortContent})");
         if (_nativeInstance == IntPtr.Zero)
             _startupParameters.StartString = content;
         else
-            Invoke(() => TauriCSharp_NavigateToString(_nativeInstance, content));
+            Invoke(() => Photino_NavigateToString(_nativeInstance, content));
         return this;
     }
 
@@ -1604,7 +1604,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <seealso cref="UseOsDefaultLocation" />
-    public TauriCSharpWindow Center()
+    public TauriWindow Center()
     {
         Log(".Center()");
         Centered = true;
@@ -1619,7 +1619,7 @@ public partial class TauriWindow
     /// </returns>
     /// <param name="location">Position as <see cref="Point"/></param>
     /// <param name="allowOutsideWorkArea">Whether the window can go off-screen (work area)</param>
-    public TauriCSharpWindow MoveTo(Point location, bool allowOutsideWorkArea = false)
+    public TauriWindow MoveTo(Point location, bool allowOutsideWorkArea = false)
     {
         Log($".MoveTo({location}, {allowOutsideWorkArea})");
 
@@ -1681,7 +1681,7 @@ public partial class TauriWindow
 
     /// <summary>
     /// Moves the native window to the specified location on the screen in pixels
-    /// using <see cref="TauriCSharpWindow.Left"/> (X) and <see cref="TauriCSharpWindow.Top"/> (Y) properties.
+    /// using <see cref="TauriWindow.Left"/> (X) and <see cref="TauriWindow.Top"/> (Y) properties.
     /// </summary>
     /// <returns>
     /// Returns the current <see cref="TauriWindow"/> instance.
@@ -1689,7 +1689,7 @@ public partial class TauriWindow
     /// <param name="left">Position from left in pixels</param>
     /// <param name="top">Position from top in pixels</param>
     /// <param name="allowOutsideWorkArea">Whether the window can go off-screen (work area)</param>
-    public TauriCSharpWindow MoveTo(int left, int top, bool allowOutsideWorkArea = false)
+    public TauriWindow MoveTo(int left, int top, bool allowOutsideWorkArea = false)
     {
         Log($".MoveTo({left}, {top}, {allowOutsideWorkArea})");
         return MoveTo(new Point(left, top), allowOutsideWorkArea);
@@ -1703,7 +1703,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="offset">Relative offset</param>
-    public TauriCSharpWindow Offset(Point offset)
+    public TauriWindow Offset(Point offset)
     {
         Log($".Offset({offset})");
         var location = Location;
@@ -1714,14 +1714,14 @@ public partial class TauriWindow
 
     /// <summary>
     /// Moves the native window relative to its current location on the screen in pixels
-    /// using <see cref="TauriCSharpWindow.Left"/> (X) and <see cref="TauriCSharpWindow.Top"/> (Y) properties.
+    /// using <see cref="TauriWindow.Left"/> (X) and <see cref="TauriWindow.Top"/> (Y) properties.
     /// </summary>
     /// <returns>
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="left">Relative offset from left in pixels</param>
     /// <param name="top">Relative offset from top in pixels</param>
-    public TauriCSharpWindow Offset(int left, int top)
+    public TauriWindow Offset(int left, int top)
     {
         Log($".Offset({left}, {top})");
         return Offset(new Point(left, top));
@@ -1738,7 +1738,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="chromeless">Whether the window should be chromeless</param>
-    public TauriCSharpWindow SetChromeless(bool chromeless)
+    public TauriWindow SetChromeless(bool chromeless)
     {
         Log($".SetChromeless({chromeless})");
         if (_nativeInstance != IntPtr.Zero)
@@ -1753,7 +1753,7 @@ public partial class TauriWindow
     /// Chromeless must be set to true. Html document's body background must have alpha-based value.
     /// By default, this is set to false.
     /// </summary>
-    public TauriCSharpWindow SetTransparent(bool enabled)
+    public TauriWindow SetTransparent(bool enabled)
     {
         Log($".SetTransparent({enabled})");
         Transparent = enabled;
@@ -1768,7 +1768,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="enabled">Whether the context menu should be available</param>
-    public TauriCSharpWindow SetContextMenuEnabled(bool enabled)
+    public TauriWindow SetContextMenuEnabled(bool enabled)
     {
         Log($".SetContextMenuEnabled({enabled})");
         ContextMenuEnabled = enabled;
@@ -1783,7 +1783,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="enabled">Whether developer tools should be available</param>
-    public TauriCSharpWindow SetDevToolsEnabled(bool enabled)
+    public TauriWindow SetDevToolsEnabled(bool enabled)
     {
         Log($".SetDevTools({enabled})");
         DevToolsEnabled = enabled;
@@ -1798,7 +1798,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="fullScreen">Whether the window should be fullscreen</param>
-    public TauriCSharpWindow SetFullScreen(bool fullScreen)
+    public TauriWindow SetFullScreen(bool fullScreen)
     {
         Log($".SetFullScreen({fullScreen})");
         FullScreen = fullScreen;
@@ -1816,7 +1816,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="grant">Whether permissions should be automatically granted.</param>
-    public TauriCSharpWindow SetGrantBrowserPermissions(bool grant)
+    public TauriWindow SetGrantBrowserPermissions(bool grant)
     {
         Log($".SetGrantBrowserPermission({grant})");
         GrantBrowserPermissions = grant;
@@ -1824,11 +1824,11 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets <see cref="TauriCSharpWindow.UserAgent"/>. Sets the user agent on the browser control at initialization.
+    /// Sets <see cref="TauriWindow.UserAgent"/>. Sets the user agent on the browser control at initialization.
     /// </summary>
     /// <param name="userAgent"></param>
     /// <returns>Returns the current <see cref="TauriWindow"/> instance.</returns>
-    public TauriCSharpWindow SetUserAgent(string userAgent)
+    public TauriWindow SetUserAgent(string userAgent)
     {
         Log($".SetUserAgent({userAgent})");
         UserAgent = userAgent;
@@ -1836,7 +1836,7 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets <see cref="TauriCSharpWindow.BrowserControlInitParameters"/> platform specific initialization parameters for the native browser control on startup.
+    /// Sets <see cref="TauriWindow.BrowserControlInitParameters"/> platform specific initialization parameters for the native browser control on startup.
     /// Default is none.
     /// <remarks>
     /// WINDOWS: WebView2 specific string. Space separated.
@@ -1855,7 +1855,7 @@ public partial class TauriWindow
     /// <param name="parameters"></param>
     /// <returns>Returns the current <see cref="TauriWindow"/> instance.</returns>
     /// </summary>
-    public TauriCSharpWindow SetBrowserControlInitParameters(string parameters)
+    public TauriWindow SetBrowserControlInitParameters(string parameters)
     {
         Log($".SetBrowserControlInitParameters({parameters})");
         BrowserControlInitParameters = parameters;
@@ -1874,7 +1874,7 @@ public partial class TauriWindow
     /// </exception>
     /// <param name="notificationRegistrationId"></param>
     /// <returns>Returns the current <see cref="TauriWindow"/> instance.</returns>
-    public TauriCSharpWindow SetNotificationRegistrationId(string notificationRegistrationId)
+    public TauriWindow SetNotificationRegistrationId(string notificationRegistrationId)
     {
         Log($".SetNotificationRegistrationId({notificationRegistrationId})");
         NotificationRegistrationId = notificationRegistrationId;
@@ -1882,11 +1882,11 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets <see cref="TauriCSharpWindow.MediaAutoplayEnabled"/> on the browser control at initialization.
+    /// Sets <see cref="TauriWindow.MediaAutoplayEnabled"/> on the browser control at initialization.
     /// </summary>
     /// <param name="enable"></param>
     /// <returns>Returns the current <see cref="TauriWindow"/> instance.</returns>
-    public TauriCSharpWindow SetMediaAutoplayEnabled(bool enable)
+    public TauriWindow SetMediaAutoplayEnabled(bool enable)
     {
         Log($".SetMediaAutoplayEnabled({enable})");
         MediaAutoplayEnabled = enable;
@@ -1894,11 +1894,11 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets <see cref="TauriCSharpWindow.FileSystemAccessEnabled"/> on the browser control at initialization.
+    /// Sets <see cref="TauriWindow.FileSystemAccessEnabled"/> on the browser control at initialization.
     /// </summary>
     /// <param name="enable"></param>
     /// <returns>Returns the current <see cref="TauriWindow"/> instance.</returns>
-    public TauriCSharpWindow SetFileSystemAccessEnabled(bool enable)
+    public TauriWindow SetFileSystemAccessEnabled(bool enable)
     {
         Log($".SetFileSystemAccessEnabled({enable})");
         FileSystemAccessEnabled = enable;
@@ -1906,11 +1906,11 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets <see cref="TauriCSharpWindow.WebSecurityEnabled"/> on the browser control at initialization.
+    /// Sets <see cref="TauriWindow.WebSecurityEnabled"/> on the browser control at initialization.
     /// </summary>
     /// <param name="enable"></param>
     /// <returns>Returns the current <see cref="TauriWindow"/> instance.</returns>
-    public TauriCSharpWindow SetWebSecurityEnabled(bool enable)
+    public TauriWindow SetWebSecurityEnabled(bool enable)
     {
         Log($".SetWebSecurityEnabled({enable})");
         WebSecurityEnabled = enable;
@@ -1918,11 +1918,11 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets <see cref="TauriCSharpWindow.JavascriptClipboardAccessEnabled"/> on the browser control at initialization.
+    /// Sets <see cref="TauriWindow.JavascriptClipboardAccessEnabled"/> on the browser control at initialization.
     /// </summary>
     /// <param name="enable"></param>
     /// <returns>Returns the current <see cref="TauriWindow"/> instance.</returns>
-    public TauriCSharpWindow SetJavascriptClipboardAccessEnabled(bool enable)
+    public TauriWindow SetJavascriptClipboardAccessEnabled(bool enable)
     {
         Log($".SetJavascriptClipboardAccessEnabled({enable})");
         JavascriptClipboardAccessEnabled = enable;
@@ -1930,11 +1930,11 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets <see cref="TauriCSharpWindow.MediaStreamEnabled"/> on the browser control at initialization.
+    /// Sets <see cref="TauriWindow.MediaStreamEnabled"/> on the browser control at initialization.
     /// </summary>
     /// <param name="enable"></param>
     /// <returns>Returns the current <see cref="TauriWindow"/> instance.</returns>
-    public TauriCSharpWindow SetMediaStreamEnabled(bool enable)
+    public TauriWindow SetMediaStreamEnabled(bool enable)
     {
         Log($".SetMediaStreamEnabled({enable})");
         MediaStreamEnabled = enable;
@@ -1942,11 +1942,11 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets <see cref="TauriCSharpWindow.SmoothScrollingEnabled"/> on the browser control at initialization.
+    /// Sets <see cref="TauriWindow.SmoothScrollingEnabled"/> on the browser control at initialization.
     /// </summary>
     /// <param name="enable"></param>
     /// <returns>Returns the current <see cref="TauriWindow"/> instance.</returns>
-    public TauriCSharpWindow SetSmoothScrollingEnabled(bool enable)
+    public TauriWindow SetSmoothScrollingEnabled(bool enable)
     {
         Log($".SetSmoothScrollingEnabled({enable})");
         SmoothScrollingEnabled = enable;
@@ -1954,11 +1954,11 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets <see cref="TauriCSharpWindow.IgnoreCertificateErrorsEnabled"/> on the browser control at initialization.
+    /// Sets <see cref="TauriWindow.IgnoreCertificateErrorsEnabled"/> on the browser control at initialization.
     /// </summary>
     /// <param name="enable"></param>
     /// <returns>Returns the current <see cref="TauriWindow"/> instance.</returns>
-    public TauriCSharpWindow SetIgnoreCertificateErrorsEnabled(bool enable)
+    public TauriWindow SetIgnoreCertificateErrorsEnabled(bool enable)
     {
         Log($".SetIgnoreCertificateErrorsEnabled({enable})");
         IgnoreCertificateErrorsEnabled = enable;
@@ -1976,7 +1976,7 @@ public partial class TauriWindow
     /// </exception>
     /// <param name="enable"></param>
     /// <returns>Returns the current <see cref="TauriWindow"/> instance.</returns>
-    public TauriCSharpWindow SetNotificationsEnabled(bool enable)
+    public TauriWindow SetNotificationsEnabled(bool enable)
     {
         Log($".SetNotificationsEnabled({enable})");
         NotificationsEnabled = enable;
@@ -1984,7 +1984,7 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets the native window <see cref="TauriCSharpWindow.Height"/> in pixels.
+    /// Sets the native window <see cref="TauriWindow.Height"/> in pixels.
     /// Default is 0.
     /// </summary>
     /// <returns>
@@ -1992,7 +1992,7 @@ public partial class TauriWindow
     /// </returns>
     /// <seealso cref="UseOsDefaultSize"/>
     /// <param name="height">Height in pixels</param>
-    public TauriCSharpWindow SetHeight(int height)
+    public TauriWindow SetHeight(int height)
     {
         Log($".SetHeight({height})");
         Height = height;
@@ -2010,7 +2010,7 @@ public partial class TauriWindow
     /// </returns>
     /// <exception cref="System.ArgumentException">Icon file: {value} does not exist.</exception>
     /// <param name="iconFile">The file path to the icon.</param>
-    public TauriCSharpWindow SetIconFile(string iconFile)
+    public TauriWindow SetIconFile(string iconFile)
     {
         Log($".SetIconFile({iconFile})");
         IconFile = iconFile;
@@ -2018,7 +2018,7 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets the native window to a new <see cref="TauriCSharpWindow.Left"/> (X) coordinate in pixels.
+    /// Sets the native window to a new <see cref="TauriWindow.Left"/> (X) coordinate in pixels.
     /// Default is 0.
     /// </summary>
     /// <seealso cref="UseOsDefaultLocation" />
@@ -2026,7 +2026,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="left">Position in pixels from the left (X).</param>
-    public TauriCSharpWindow SetLeft(int left)
+    public TauriWindow SetLeft(int left)
     {
         Log($".SetLeft({Left})");
         Left = left;
@@ -2041,7 +2041,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="resizable">Whether the window is resizable</param>
-    public TauriCSharpWindow SetResizable(bool resizable)
+    public TauriWindow SetResizable(bool resizable)
     {
         Log($".SetResizable({resizable})");
         Resizable = resizable;
@@ -2049,7 +2049,7 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets the native window Size. This represents the <see cref="TauriCSharpWindow.Width"/> and the <see cref="TauriCSharpWindow.Height"/> of the window in pixels.
+    /// Sets the native window Size. This represents the <see cref="TauriWindow.Width"/> and the <see cref="TauriWindow.Height"/> of the window in pixels.
     /// The default Size is 0,0.
     /// </summary>
     /// <seealso cref="UseOsDefaultSize"/>
@@ -2057,7 +2057,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="size">Width &amp; Height</param>
-    public TauriCSharpWindow SetSize(Size size)
+    public TauriWindow SetSize(Size size)
     {
         Log($".SetSize({size})");
         Size = size;
@@ -2065,7 +2065,7 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets the native window Size. This represents the <see cref="TauriCSharpWindow.Width"/> and the <see cref="TauriCSharpWindow.Height"/> of the window in pixels.
+    /// Sets the native window Size. This represents the <see cref="TauriWindow.Width"/> and the <see cref="TauriWindow.Height"/> of the window in pixels.
     /// The default Size is 0,0.
     /// </summary>
     /// <seealso cref="UseOsDefaultSize"/>
@@ -2074,7 +2074,7 @@ public partial class TauriWindow
     /// </returns>
     /// <param name="width">Width in pixels</param>
     /// <param name="height">Height in pixels</param>
-    public TauriCSharpWindow SetSize(int width, int height)
+    public TauriWindow SetSize(int width, int height)
     {
         Log($".SetSize({width}, {height})");
         Size = new Size(width, height);
@@ -2082,7 +2082,7 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets the native window <see cref="TauriCSharpWindow.Left"/> (X) and <see cref="TauriCSharpWindow.Top"/> coordinates (Y) in pixels.
+    /// Sets the native window <see cref="TauriWindow.Left"/> (X) and <see cref="TauriWindow.Top"/> coordinates (Y) in pixels.
     /// Default is 0,0 which means the window will be aligned to the top left edge of the screen.
     /// </summary>
     /// <seealso cref="UseOsDefaultLocation" />
@@ -2090,7 +2090,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="location">Location as a <see cref="Point"/></param>
-    public TauriCSharpWindow SetLocation(Point location)
+    public TauriWindow SetLocation(Point location)
     {
         Log($".SetLocation({location})");
         Location = location;
@@ -2109,7 +2109,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="verbosity">Verbosity as integer</param>
-    public TauriCSharpWindow SetLogVerbosity(int verbosity)
+    public TauriWindow SetLogVerbosity(int verbosity)
     {
         Log($".SetLogVerbosity({verbosity})");
         LogVerbosity = verbosity;
@@ -2124,7 +2124,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="maximized">Whether the window should be maximized.</param>
-    public TauriCSharpWindow SetMaximized(bool maximized)
+    public TauriWindow SetMaximized(bool maximized)
     {
         Log($".SetMaximized({maximized})");
         Maximized = maximized;
@@ -2132,7 +2132,7 @@ public partial class TauriWindow
     }
 
     ///<summary>Native window maximum Width and Height in pixels.</summary>
-    public TauriCSharpWindow SetMaxSize(int maxWidth, int maxHeight)
+    public TauriWindow SetMaxSize(int maxWidth, int maxHeight)
     {
         Log($".SetMaxSize({maxWidth}, {maxHeight})");
         MaxSize = new Point(maxWidth, maxHeight);
@@ -2140,7 +2140,7 @@ public partial class TauriWindow
     }
 
     ///<summary>Native window maximum Height in pixels.</summary>
-    public TauriCSharpWindow SetMaxHeight(int maxHeight)
+    public TauriWindow SetMaxHeight(int maxHeight)
     {
         Log($".SetMaxHeight({maxHeight})");
         MaxHeight = maxHeight;
@@ -2148,7 +2148,7 @@ public partial class TauriWindow
     }
 
     ///<summary>Native window maximum Width in pixels.</summary>
-    public TauriCSharpWindow SetMaxWidth(int maxWidth)
+    public TauriWindow SetMaxWidth(int maxWidth)
     {
         Log($".SetMaxWidth({maxWidth})");
         MaxWidth = maxWidth;
@@ -2163,7 +2163,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="minimized">Whether the window should be minimized.</param>
-    public TauriCSharpWindow SetMinimized(bool minimized)
+    public TauriWindow SetMinimized(bool minimized)
     {
         Log($".SetMinimized({minimized})");
         Minimized = minimized;
@@ -2171,7 +2171,7 @@ public partial class TauriWindow
     }
 
     ///<summary>Native window maximum Width and Height in pixels.</summary>
-    public TauriCSharpWindow SetMinSize(int minWidth, int minHeight)
+    public TauriWindow SetMinSize(int minWidth, int minHeight)
     {
         Log($".SetMinSize({minWidth}, {minHeight})");
         MinSize = new Point(minWidth, minHeight);
@@ -2179,7 +2179,7 @@ public partial class TauriWindow
     }
 
     ///<summary>Native window maximum Height in pixels.</summary>
-    public TauriCSharpWindow SetMinHeight(int minHeight)
+    public TauriWindow SetMinHeight(int minHeight)
     {
         Log($".SetMinHeight({minHeight})");
         MinHeight = minHeight;
@@ -2187,7 +2187,7 @@ public partial class TauriWindow
     }
 
     ///<summary>Native window maximum Width in pixels.</summary>
-    public TauriCSharpWindow SetMinWidth(int minWidth)
+    public TauriWindow SetMinWidth(int minWidth)
     {
         Log($".SetMinWidth({minWidth})");
         MinWidth = minWidth;
@@ -2208,7 +2208,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="tempFilesPath">Path to temp files directory.</param>
-    public TauriCSharpWindow SetTemporaryFilesPath(string tempFilesPath)
+    public TauriWindow SetTemporaryFilesPath(string tempFilesPath)
     {
         Log($".SetTemporaryFilesPath({tempFilesPath})");
         TemporaryFilesPath = tempFilesPath;
@@ -2216,14 +2216,14 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets the native window <see cref="TauriCSharpWindow.Title"/>.
+    /// Sets the native window <see cref="TauriWindow.Title"/>.
     /// Default is "TauriCSharp".
     /// </summary>
     /// <returns>
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="title">Window title</param>
-    public TauriCSharpWindow SetTitle(string title)
+    public TauriWindow SetTitle(string title)
     {
         Log($".SetTitle({title})");
         Title = title;
@@ -2231,7 +2231,7 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets the native window <see cref="TauriCSharpWindow.Top"/> (Y) coordinate in pixels.
+    /// Sets the native window <see cref="TauriWindow.Top"/> (Y) coordinate in pixels.
     /// Default is 0.
     /// </summary>
     /// <returns>
@@ -2239,7 +2239,7 @@ public partial class TauriWindow
     /// </returns>
     /// <seealso cref="UseOsDefaultLocation"/>
     /// <param name="top">Position in pixels from the top (Y).</param>
-    public TauriCSharpWindow SetTop(int top)
+    public TauriWindow SetTop(int top)
     {
         Log($".SetTop({top})");
         Top = top;
@@ -2254,7 +2254,7 @@ public partial class TauriWindow
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="topMost">Whether the window is at the top</param>
-    public TauriCSharpWindow SetTopMost(bool topMost)
+    public TauriWindow SetTopMost(bool topMost)
     {
         Log($".SetTopMost({topMost})");
         Topmost = topMost;
@@ -2270,7 +2270,7 @@ public partial class TauriWindow
     /// </returns>
     /// <seealso cref="UseOsDefaultSize"/>
     /// <param name="width">Width in pixels</param>
-    public TauriCSharpWindow SetWidth(int width)
+    public TauriWindow SetWidth(int width)
     {
         Log($".SetWidth({width})");
         Width = width;
@@ -2278,7 +2278,7 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Sets the native browser control <see cref="TauriCSharpWindow.Zoom"/>.
+    /// Sets the native browser control <see cref="TauriWindow.Zoom"/>.
     /// Default is 100.
     /// </summary>
     /// <returns>
@@ -2286,7 +2286,7 @@ public partial class TauriWindow
     /// </returns>
     /// <param name="zoom">Zoomlevel as integer</param>
     /// <example>100 = 100%, 50 = 50%</example>
-    public TauriCSharpWindow SetZoom(int zoom)
+    public TauriWindow SetZoom(int zoom)
     {
         Log($".SetZoom({zoom})");
         Zoom = zoom;
@@ -2298,13 +2298,13 @@ public partial class TauriWindow
     /// Default is true.
     /// </summary>
     /// <remarks>
-    /// Overrides <see cref="TauriCSharpWindow.Left"/> (X) and <see cref="TauriCSharpWindow.Top"/> (Y) properties.
+    /// Overrides <see cref="TauriWindow.Left"/> (X) and <see cref="TauriWindow.Top"/> (Y) properties.
     /// </remarks>
     /// <returns>
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="useOsDefault">Whether the OS Default should be used.</param>
-    public TauriCSharpWindow SetUseOsDefaultLocation(bool useOsDefault)
+    public TauriWindow SetUseOsDefaultLocation(bool useOsDefault)
     {
         Log($".SetUseOsDefaultLocation({useOsDefault})");
         UseOsDefaultLocation = useOsDefault;
@@ -2316,13 +2316,13 @@ public partial class TauriWindow
     /// Default is true.
     /// </summary>
     /// <remarks>
-    /// Overrides <see cref="TauriCSharpWindow.Height"/> and <see cref="TauriCSharpWindow.Width"/> properties.
+    /// Overrides <see cref="TauriWindow.Height"/> and <see cref="TauriWindow.Width"/> properties.
     /// </remarks>
     /// <returns>
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
     /// <param name="useOsDefault">Whether the OS Default should be used.</param>
-    public TauriCSharpWindow SetUseOsDefaultSize(bool useOsDefault)
+    public TauriWindow SetUseOsDefaultSize(bool useOsDefault)
     {
         Log($".SetUseOsDefaultSize({useOsDefault})");
         UseOsDefaultSize = useOsDefault;
@@ -2340,10 +2340,10 @@ public partial class TauriWindow
     /// </returns>
     /// <seealso href="https://docs.microsoft.com/en-us/microsoft-edge/webview2/concepts/distribution" />
     /// <param name="data">Runtime path for WebView2</param>
-    public TauriCSharpWindow Win32SetWebView2Path(string data)
+    public TauriWindow Win32SetWebView2Path(string data)
     {
         if (IsWindowsPlatform)
-            Invoke(() => TauriCSharp_setWebView2RuntimePath_win32(_nativeType, data));
+            Invoke(() => Photino_setWebView2RuntimePath_win32(_nativeType, data));
         else
             Log("Win32SetWebView2Path is only supported on the Windows platform");
 
@@ -2359,10 +2359,10 @@ public partial class TauriWindow
     /// <returns>
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
-    public TauriCSharpWindow ClearBrowserAutoFill()
+    public TauriWindow ClearBrowserAutoFill()
     {
         if (IsWindowsPlatform)
-            Invoke(() => TauriCSharp_ClearBrowserAutoFill(_nativeInstance));
+            Invoke(() => Photino_ClearBrowserAutoFill(_nativeInstance));
         else
             Log("ClearBrowserAutoFill is only supported on the Windows platform");
 
@@ -2402,11 +2402,11 @@ public partial class TauriWindow
                 _nativeType = NativeLibrary.GetMainProgramHandle();
 
                 if (IsWindowsPlatform)
-                    Invoke(() => TauriCSharp_register_win32(_nativeType));
+                    Invoke(() => Photino_register_win32(_nativeType));
                 else if (IsMacOsPlatform)
-                    Invoke(() => TauriCSharp_register_mac());
+                    Invoke(() => Photino_register_mac());
 
-                Invoke(() => _nativeInstance = TauriCSharp_ctor(ref _startupParameters));
+                Invoke(() => _nativeInstance = Photino_ctor(ref _startupParameters));
             }
             catch (Exception ex)
             {
@@ -2424,7 +2424,7 @@ public partial class TauriWindow
                 _messageLoopIsStarted = true;
                 try
                 {
-                    Invoke(() => TauriCSharp_WaitForExit(_nativeInstance));       //start the message loop. there can only be 1 message loop for all windows.
+                    Invoke(() => Photino_WaitForExit(_nativeInstance));       //start the message loop. there can only be 1 message loop for all windows.
                 }
                 catch (Exception ex)
                 {
@@ -2458,7 +2458,7 @@ public partial class TauriWindow
         Log(".Close()");
         if (_nativeInstance == IntPtr.Zero)
             throw new ApplicationException("Close cannot be called until after the TauriCSharp window is initialized.");
-        Invoke(() => TauriCSharp_Close(_nativeInstance));
+        Invoke(() => Photino_Close(_nativeInstance));
     }
 
     /// <summary>
@@ -2476,7 +2476,7 @@ public partial class TauriWindow
         Log($".SendWebMessage({message})");
         if (_nativeInstance == IntPtr.Zero)
             throw new ApplicationException("SendWebMessage cannot be called until after the TauriCSharp window is initialized.");
-        Invoke(() => TauriCSharp_SendWebMessage(_nativeInstance, message));
+        Invoke(() => Photino_SendWebMessage(_nativeInstance, message));
     }
 
     public async Task SendWebMessageAsync(string message)
@@ -2486,7 +2486,7 @@ public partial class TauriWindow
             Log($".SendWebMessage({message})");
             if (_nativeInstance == IntPtr.Zero)
                 throw new ApplicationException("SendWebMessage cannot be called until after the TauriCSharp window is initialized.");
-            Invoke(() => TauriCSharp_SendWebMessage(_nativeInstance, message));
+            Invoke(() => Photino_SendWebMessage(_nativeInstance, message));
         });
     }
 
@@ -2504,7 +2504,7 @@ public partial class TauriWindow
         Log($".SendNotification({title}, {body})");
         if (_nativeInstance == IntPtr.Zero)
             throw new ApplicationException("SendNotification cannot be called until after the TauriCSharp window is initialized.");
-        Invoke(() => TauriCSharp_ShowNotification(_nativeInstance, title, body));
+        Invoke(() => Photino_ShowNotification(_nativeInstance, title, body));
     }
 
     /// <summary>
@@ -2592,7 +2592,7 @@ public partial class TauriWindow
 
         Invoke(() =>
         {
-            var ptrResult = TauriCSharp_ShowSaveFile(_nativeInstance, title, defaultPath, nativeFilters, filters.Length);
+            var ptrResult = Photino_ShowSaveFile(_nativeInstance, title, defaultPath, nativeFilters, filters.Length);
             result = Marshal.PtrToStringAuto(ptrResult);
         });
 
@@ -2631,7 +2631,7 @@ public partial class TauriWindow
     public TauriDialogResult ShowMessage(string title, string text, TauriDialogButtons buttons = TauriDialogButtons.Ok, TauriDialogIcon icon = TauriDialogIcon.Info)
     {
         var result = TauriDialogResult.Cancel;
-        Invoke(() => result = TauriCSharp_ShowMessage(_nativeInstance, title, text, buttons, icon));
+        Invoke(() => result = Photino_ShowMessage(_nativeInstance, title, text, buttons, icon));
         return result;
     }
 
@@ -2655,8 +2655,8 @@ public partial class TauriWindow
         Invoke(() =>
         {
             var ptrResults = foldersOnly ?
-                TauriCSharp_ShowOpenFolder(_nativeInstance, title, defaultPath, multiSelect, out var resultCount) :
-                TauriCSharp_ShowOpenFile(_nativeInstance, title, defaultPath, multiSelect, nativeFilters, nativeFilters.Length, out resultCount);
+                Photino_ShowOpenFolder(_nativeInstance, title, defaultPath, multiSelect, out var resultCount) :
+                Photino_ShowOpenFile(_nativeInstance, title, defaultPath, multiSelect, nativeFilters, nativeFilters.Length, out resultCount);
             if (resultCount == 0) return;
 
             var ptrArray = new IntPtr[resultCount];
@@ -2678,7 +2678,7 @@ public partial class TauriWindow
     private void Log(string message)
     {
         if (LogVerbosity < 1) return;
-        Console.WriteLine($"TauriCSharp.NET: \"{Title ?? "TauriCSharpWindow"}\"{message}");
+        Console.WriteLine($"TauriCSharp.NET: \"{Title ?? "TauriWindow"}\"{message}");
     }
 
     /// <summary>

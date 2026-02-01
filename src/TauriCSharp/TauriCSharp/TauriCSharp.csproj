@@ -20,6 +20,7 @@
 	<PropertyGroup>
 		<TargetFrameworks>net8.0;net9.0</TargetFrameworks>
 		<ImplicitUsings>true</ImplicitUsings>
+		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
 		<OutputType>Library</OutputType>
 		<IsPackable>true</IsPackable>

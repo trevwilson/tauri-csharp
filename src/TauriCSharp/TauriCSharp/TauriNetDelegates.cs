@@ -356,6 +356,7 @@ public partial class TauriWindow
         if (!CustomSchemes.ContainsKey(scheme))
             throw new ApplicationException($"A handler for the custom scheme '{scheme}' has not been registered.");
 
+        contentType = "";
         var responseStream = CustomSchemes[scheme]?.Invoke(this, scheme, url, out contentType);
 
         if (responseStream == null)
@@ -363,7 +364,6 @@ public partial class TauriWindow
             // Webview should pass through request to normal handlers (e.g., network)
             // or handle as 404 otherwise
             numBytes = 0;
-            contentType = "";
             return default;
         }
 
