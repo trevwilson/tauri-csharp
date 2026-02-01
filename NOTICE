@@ -1,0 +1,34 @@
+tauri-csharp
+Copyright 2025 trev
+
+This project includes code derived from the following:
+
+================================================================================
+Photino.NET / Photino.Native
+================================================================================
+Copyright 2020-2024 CODE Consulting and Development, s.r.o.
+Licensed under the Apache License, Version 2.0
+https://github.com/tryphotino/photino.NET
+https://github.com/tryphotino/photino.Native
+
+The managed .NET layer (src/TauriCSharp) is derived from Photino.NET with
+modifications including namespace changes, API improvements, and native backend
+replacement.
+
+================================================================================
+Wry
+================================================================================
+Copyright 2020-2025 Tauri Programme within The Commons Conservancy
+Licensed under the Apache License, Version 2.0
+https://github.com/tauri-apps/wry
+
+Used as the native webview abstraction layer via FFI bindings.
+
+================================================================================
+Tao
+================================================================================
+Copyright 2020-2025 Tauri Programme within The Commons Conservancy
+Licensed under the Apache License, Version 2.0
+https://github.com/tauri-apps/tao
+
+Used for window management and event loop via FFI bindings.

@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<Authors>trev</Authors>
+		<Company>tauri-csharp</Company>
+		<Description>.NET 8/9 cross-platform desktop apps with web UI, powered by Wry</Description>
+		<GenerateNuspecDependsOn>$(GenerateNuspecDependsOn);SetPackageVersion</GenerateNuspecDependsOn>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+		<PackageDescription>.NET 8/9 cross-platform desktop apps with web UI, powered by Wry</PackageDescription>
+		<PackageId>TauriCSharp</PackageId>
+		<PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
+		<Product>TauriCSharp</Product>
+		<PackageProjectUrl>https://github.com/trev/tauri-csharp</PackageProjectUrl>
+		<RepositoryUrl>https://github.com/trev/tauri-csharp</RepositoryUrl>
+		<Title>TauriCSharp</Title>
+		<RootNamespace>TauriCSharp</RootNamespace>
+		<AssemblyName>TauriCSharp</AssemblyName>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<TargetFrameworks>net8.0;net9.0</TargetFrameworks>
+		<ImplicitUsings>true</ImplicitUsings>
+		<LangVersion>latest</LangVersion>
+		<OutputType>Library</OutputType>
+		<IsPackable>true</IsPackable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<Copyright>Copyright (C) 2025 trev</Copyright>
+	</PropertyGroup>
+
+	<Target Name="SetPackageVersion" DependsOnTargets="Build">
+		<PropertyGroup>
+			<PackageVersion>$(Version)</PackageVersion>
+		</PropertyGroup>
+	</Target>
+
+	<!-- TODO: Replace with wry-ffi native package once built -->
+	<ItemGroup>
+		<PackageReference Include="Photino.Native" Version="4.0.22" />
+	</ItemGroup>
+
+</Project>
