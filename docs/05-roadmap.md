@@ -5,7 +5,6 @@
 ### Goals
 - Fork Photino.NET, establish project structure
 - Fix immediate issues
-- Validate build pipeline
 
 ### Tasks
 
@@ -14,7 +13,6 @@
   - [x] Rename namespaces: `Photino.NET` → `TauriCSharp`
   - [x] Rename classes: `PhotinoWindow` → `TauriWindow`
   - [x] Update project files, package metadata
-  - [ ] Set up CI/CD (GitHub Actions)
   - [x] Create NOTICE file with Photino attribution
 
 - [x] **1.2 Quick Wins**
@@ -23,13 +21,8 @@
   - [x] Improve error handling (TauriException hierarchy)
   - [x] Add request/response correlation for IPC
 
-- [ ] **1.3 Documentation**
-  - [ ] Migration guide from Photino
-  - [ ] Basic API documentation
-  - [ ] Example applications
-
 ### Deliverable
-Working NuGet package that's API-compatible with Photino but renamed and with improvements.
+Renamed and improved codebase ready for native layer swap.
 
 ---
 
@@ -37,8 +30,7 @@ Working NuGet package that's API-compatible with Photino but renamed and with im
 
 ### Goals
 - Create Rust FFI crate exposing Wry/Tao
-- Build for Windows, macOS, Linux
-- Validate interop works
+- Validate interop works on local platform
 
 ### Tasks
 
@@ -46,7 +38,6 @@ Working NuGet package that's API-compatible with Photino but renamed and with im
   - [x] Create `wry-ffi` crate
   - [x] Add Wry and Tao dependencies (vendored)
   - [x] Configure cdylib output
-  - [ ] Set up cross-compilation (cross-rs or manual)
 
 - [x] **2.2 Core FFI Implementation**
   - [x] App lifecycle (create, run, quit, destroy)
@@ -61,23 +52,17 @@ Working NuGet package that's API-compatible with Photino but renamed and with im
   - [x] Request/response correlation
   - [x] Event emission from backend
 
-- [ ] **2.4 Build Pipeline**
-  - [ ] GitHub Actions for Windows x64
-  - [ ] GitHub Actions for macOS x64 + arm64
-  - [ ] GitHub Actions for Linux x64
-  - [ ] Package native binaries for NuGet
-
 ### Deliverable
 `wry_ffi.dll/.dylib/.so` binaries that can be called from C#.
 
 ---
 
-## Phase 3: Native Layer Swap ✅ COMPLETE
+## Phase 3: C# Bindings & Validation 🔄 IN PROGRESS
 
 ### Goals
 - Replace Photino.Native with wry-ffi
 - Maintain API compatibility
-- Ship unified package
+- Validate with tests before extending
 
 ### Tasks
 
@@ -87,7 +72,6 @@ Working NuGet package that's API-compatible with Photino but renamed and with im
   - [x] Implement callback marshaling (WryDelegates.cs)
   - [x] WryCallbackRegistry for GCHandle pinning (prevents delegate GC)
   - [x] WryNativeString for proper string cleanup (wry_string_free)
-  - [ ] Native library resolver for multi-platform
 
 - [x] **3.2 TauriWindow Refactor**
   - [x] Replace all Photino P/Invoke calls with Wry calls
@@ -104,22 +88,24 @@ Working NuGet package that's API-compatible with Photino but renamed and with im
   - [x] CurrentUrl property - get webview URL
   - [x] NavigationStarting event - can cancel navigation
 
-- [ ] **3.4 Testing**
-  - [ ] Unit tests for P/Invoke bindings
-  - [ ] Integration tests on each platform
-  - [ ] Manual smoke tests
+- [ ] **3.4 Testing** ⬅️ NEXT
+  - [ ] Basic smoke test app (window opens, loads URL, closes)
+  - [ ] IPC round-trip test (C# → JS → C#)
+  - [ ] Custom protocol test (app:// scheme)
+  - [ ] Callback tests (resize, move, focus events fire)
+  - [ ] Memory test (create/destroy windows in loop)
 
-- [ ] **3.5 NuGet Package**
-  - [ ] Include native binaries for all platforms
-  - [ ] Runtime identifier selection
-  - [ ] Transitive dependency management
+- [ ] **3.5 Local NuGet Package**
+  - [ ] Native library resolver for multi-platform loading
+  - [ ] Local `.nupkg` build for testing
+  - [ ] Test package install in fresh project
 
 ### Deliverable
-`TauriCSharp` NuGet package using Wry backend, working on Windows/macOS/Linux.
+Validated `TauriCSharp` that works on current platform, ready for feature expansion.
 
 ---
 
-## Phase 4: Extended Features (Weeks 8-12) 🔄 IN PROGRESS
+## Phase 4: Extended Features
 
 ### Goals
 - Add features Photino lacked via additional Rust crates
@@ -190,7 +176,39 @@ Feature-rich desktop framework competitive with Tauri and Velox (minus mobile).
 
 ---
 
-## Phase 5: Mobile Support (Weeks 13-20)
+## Phase 5: CI/CD, Packaging & Documentation
+
+### Goals
+- Automated cross-platform builds
+- Published NuGet package
+- Documentation for adoption
+
+### Tasks
+
+- [ ] **5.1 Cross-Platform Builds**
+  - [ ] Set up cross-compilation (cross-rs or manual)
+  - [ ] GitHub Actions for Windows x64
+  - [ ] GitHub Actions for macOS x64 + arm64
+  - [ ] GitHub Actions for Linux x64
+
+- [ ] **5.2 NuGet Publishing**
+  - [ ] Package native binaries for all platforms
+  - [ ] Runtime identifier (RID) selection
+  - [ ] Transitive dependency management
+  - [ ] Publish to NuGet.org
+
+- [ ] **5.3 Documentation**
+  - [ ] Migration guide from Photino
+  - [ ] API documentation
+  - [ ] Getting started guide
+  - [ ] Example applications
+
+### Deliverable
+Published `TauriCSharp` NuGet package with documentation.
+
+---
+
+## Phase 6: Mobile Support
 
 ### Goals
 - iOS support via Wry
@@ -219,7 +237,7 @@ Cross-platform framework: Windows, macOS, Linux, iOS, Android.
 
 ---
 
-## Phase 6: Blazor Integration (Optional, Weeks 21-24)
+## Phase 7: Blazor Integration (Optional)
 
 ### Goals
 - First-class Blazor support
