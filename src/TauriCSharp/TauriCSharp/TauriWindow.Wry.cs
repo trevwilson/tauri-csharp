@@ -1,7 +1,9 @@
-// TauriWindow implementation using wry-ffi backend
+// TauriWindow implementation using Velox-based wry-ffi backend
 // This partial class contains the wry-ffi specific implementation
+// Updated for the new separate event loop, window, and webview architecture
 
 using System.Runtime.InteropServices;
+using System.Text.Json;
 using TauriCSharp.Handles;
 using TauriCSharp.Interop;
 
@@ -10,14 +12,15 @@ namespace TauriCSharp;
 public partial class TauriWindow : IDisposable
 {
     // ========================================================================
-    // wry-ffi handles and state
+    // Velox-based wry-ffi handles and state
     // ========================================================================
 
     /// <summary>
-    /// Static app handle shared across all windows (there's one event loop).
+    /// Static event loop shared across all windows.
     /// </summary>
-    private static WryAppHandle? _wryApp;
-    private static readonly object _wryAppLock = new();
+    private static WryEventLoopHandle? _eventLoop;
+    private static WryEventLoopProxyHandle? _eventLoopProxy;
+    private static readonly object _eventLoopLock = new();
 
     /// <summary>
     /// Window handle for this instance.
@@ -25,288 +28,478 @@ public partial class TauriWindow : IDisposable
     private IntPtr _wryWindow = IntPtr.Zero;
 
     /// <summary>
+    /// Webview handle for this instance.
+    /// </summary>
+    private IntPtr _wryWebview = IntPtr.Zero;
+
+    /// <summary>
+    /// Window identifier from the native side.
+    /// </summary>
+    private string? _windowIdentifier;
+
+    /// <summary>
+    /// Protocol handler state - stored for the lifetime of the window.
+    /// </summary>
+    private ProtocolHandlerState? _protocolState;
+
+    /// <summary>
     /// Callback registry for pinning delegates to prevent GC collection.
     /// </summary>
     private static readonly WryCallbackRegistry _callbackRegistry = new();
+
+    /// <summary>
+    /// Event loop callback - pinned for lifetime of event loop.
+    /// </summary>
+    private static WryEventLoopCallback? _eventLoopCallback;
 
     /// <summary>
     /// Indicates if we're already disposed.
     /// </summary>
     private bool _disposed;
 
+    /// <summary>
+    /// Indicates if we should exit the event loop.
+    /// </summary>
+    private bool _shouldExit;
+
     // ========================================================================
-    // Callback delegates - stored as fields to prevent GC collection
+    // Protocol Handler State
     // ========================================================================
 
-    private WebMessageCallbackNative? _messageCallback;
-    private WindowClosingCallbackNative? _closingCallback;
-    private WindowResizedCallbackNative? _resizedCallback;
-    private WindowMovedCallbackNative? _movedCallback;
-    private WindowFocusCallbackNative? _focusCallback;
-    private NavigationCallbackNative? _navigationCallback;
+    private sealed class ProtocolHandlerState
+    {
+        public required WryCustomProtocolHandler NativeCallback;
+        public required GCHandle CallbackHandle;
+        public required IntPtr SchemePtr;
+        public required GCHandle DefinitionsHandle;
+        public required IntPtr DefinitionsPtr;
+
+        // Keep managed state alive
+        public required WryCustomProtocolDefinition[] Definitions;
+
+        public void Free()
+        {
+            if (CallbackHandle.IsAllocated) CallbackHandle.Free();
+            if (SchemePtr != IntPtr.Zero) Marshal.FreeCoTaskMem(SchemePtr);
+            if (DefinitionsHandle.IsAllocated) DefinitionsHandle.Free();
+        }
+    }
 
     // ========================================================================
     // wry-ffi specific implementation methods
     // ========================================================================
 
     /// <summary>
-    /// Ensures the wry app is created (singleton).
+    /// Ensures the event loop is created (singleton).
     /// </summary>
-    private static WryAppHandle EnsureWryApp()
+    private static WryEventLoopHandle EnsureEventLoop()
     {
-        if (_wryApp != null && !_wryApp.IsInvalid)
-            return _wryApp;
+        if (_eventLoop != null && !_eventLoop.IsInvalid)
+            return _eventLoop;
 
-        lock (_wryAppLock)
+        lock (_eventLoopLock)
         {
-            if (_wryApp != null && !_wryApp.IsInvalid)
-                return _wryApp;
+            if (_eventLoop != null && !_eventLoop.IsInvalid)
+                return _eventLoop;
 
-            _wryApp = WryAppHandle.Create();
-            return _wryApp;
+            _eventLoop = WryEventLoopHandle.Create();
+            _eventLoopProxy = WryEventLoopProxyHandle.Create(_eventLoop);
+            return _eventLoop;
         }
     }
 
     /// <summary>
-    /// Converts TauriNativeParameters to WryWindowParams.
-    /// </summary>
-    private WryWindowParams ConvertToWryParams()
-    {
-        var p = _startupParameters;
-
-        // Allocate strings - they must stay alive for the duration of window creation
-        using var title = new MarshalledUtf8String(p.Title);
-        using var url = new MarshalledUtf8String(p.StartUrl);
-        using var html = new MarshalledUtf8String(p.StartString);
-        using var userAgent = new MarshalledUtf8String(p.UserAgent);
-        using var dataDir = new MarshalledUtf8String(p.TemporaryFilesPath);
-
-        return new WryWindowParams
-        {
-            Title = title.Pointer,
-            Url = url.Pointer,
-            Html = html.Pointer,
-            UserAgent = userAgent.Pointer,
-            DataDirectory = dataDir.Pointer,
-            X = p.Left,
-            Y = p.Top,
-            Width = p.UseOsDefaultSize ? 800 : (uint)Math.Max(0, p.Width),
-            Height = p.UseOsDefaultSize ? 600 : (uint)Math.Max(0, p.Height),
-            MinWidth = (uint)Math.Max(0, p.MinWidth),
-            MinHeight = (uint)Math.Max(0, p.MinHeight),
-            MaxWidth = p.MaxWidth == int.MaxValue ? 0 : (uint)Math.Max(0, p.MaxWidth),
-            MaxHeight = p.MaxHeight == int.MaxValue ? 0 : (uint)Math.Max(0, p.MaxHeight),
-            Resizable = p.Resizable,
-            Fullscreen = p.FullScreen,
-            Maximized = p.Maximized,
-            Minimized = p.Minimized,
-            Visible = true,
-            Transparent = p.Transparent,
-            Decorations = !p.Chromeless,
-            AlwaysOnTop = p.Topmost,
-            DevtoolsEnabled = p.DevToolsEnabled,
-            AutoplayEnabled = p.MediaAutoplayEnabled,
-        };
-    }
-
-    /// <summary>
-    /// Creates the wry window and registers callbacks.
+    /// Creates the window and webview.
     /// </summary>
     private void CreateWryWindow()
     {
-        var app = EnsureWryApp();
+        var eventLoop = EnsureEventLoop();
 
-        // Build params - note we need to keep strings alive during creation
-        var wryParams = BuildWryParams();
+        // Create window config
+        var windowConfig = BuildWindowConfig();
 
-        _wryWindow = WryInterop.WindowCreate(app.DangerousGetRawHandle(), in wryParams);
+        // Create window
+        _wryWindow = WryInterop.WindowBuild(eventLoop.DangerousGetRawHandle(), in windowConfig);
+        FreeWindowConfig(ref windowConfig);
+
         if (_wryWindow == IntPtr.Zero)
         {
-            var error = Marshal.PtrToStringUTF8(WryInterop.GetLastError());
-            throw new TauriInitializationException($"Failed to create window: {error}");
+            throw new TauriInitializationException("Failed to create window");
         }
 
-        // Register callbacks after window creation
-        RegisterCallbacks();
+        // Get window identifier
+        var idPtr = WryInterop.WindowIdentifier(_wryWindow);
+        if (idPtr != IntPtr.Zero)
+        {
+            _windowIdentifier = Marshal.PtrToStringUTF8(idPtr);
+        }
+
+        // Create webview config (includes protocol handlers)
+        var webviewConfig = BuildWebviewConfig();
+
+        // Create webview
+        _wryWebview = WryInterop.WebviewBuild(_wryWindow, in webviewConfig);
+
+        // Don't free webviewConfig protocol data yet - it needs to stay alive
+        // The protocol state is stored in _protocolState
+
+        if (_wryWebview == IntPtr.Zero)
+        {
+            WryInterop.WindowFree(_wryWindow);
+            _wryWindow = IntPtr.Zero;
+            _protocolState?.Free();
+            throw new TauriInitializationException("Failed to create webview");
+        }
 
         // Store as _nativeInstance for backward compatibility
         _nativeInstance = _wryWindow;
     }
 
     /// <summary>
-    /// Builds WryWindowParams with proper string lifetime management.
+    /// Builds window config from startup parameters.
     /// </summary>
-    private WryWindowParams BuildWryParams()
+    private WryWindowConfig BuildWindowConfig()
     {
         var p = _startupParameters;
 
-        var wryParams = WryWindowParams.CreateDefault();
+        var config = WryWindowConfig.CreateDefault();
+        config.Width = p.UseOsDefaultSize ? 800 : (uint)Math.Max(1, p.Width);
+        config.Height = p.UseOsDefaultSize ? 600 : (uint)Math.Max(1, p.Height);
 
-        // Set numeric values
-        wryParams.X = p.UseOsDefaultLocation ? 0 : p.Left;
-        wryParams.Y = p.UseOsDefaultLocation ? 0 : p.Top;
-        wryParams.Width = p.UseOsDefaultSize ? 800 : (uint)Math.Max(1, p.Width);
-        wryParams.Height = p.UseOsDefaultSize ? 600 : (uint)Math.Max(1, p.Height);
-        wryParams.MinWidth = (uint)Math.Max(0, p.MinWidth);
-        wryParams.MinHeight = (uint)Math.Max(0, p.MinHeight);
-        wryParams.MaxWidth = p.MaxWidth == int.MaxValue ? 0 : (uint)Math.Max(0, p.MaxWidth);
-        wryParams.MaxHeight = p.MaxHeight == int.MaxValue ? 0 : (uint)Math.Max(0, p.MaxHeight);
-
-        // Set flags
-        wryParams.Resizable = p.Resizable;
-        wryParams.Fullscreen = p.FullScreen;
-        wryParams.Maximized = p.Maximized;
-        wryParams.Minimized = p.Minimized;
-        wryParams.Visible = true;
-        wryParams.Transparent = p.Transparent;
-        wryParams.Decorations = !p.Chromeless;
-        wryParams.AlwaysOnTop = p.Topmost;
-        wryParams.DevtoolsEnabled = p.DevToolsEnabled;
-        wryParams.AutoplayEnabled = p.MediaAutoplayEnabled;
-
-        // Strings need special handling - allocated and passed as IntPtr
-        // Note: These pointers are only valid during the WindowCreate call
-        // The native side copies them immediately
         if (!string.IsNullOrEmpty(p.Title))
-            wryParams.Title = Marshal.StringToCoTaskMemUTF8(p.Title);
+        {
+            config.Title = Marshal.StringToCoTaskMemUTF8(p.Title);
+        }
+
+        return config;
+    }
+
+    /// <summary>
+    /// Frees window config strings.
+    /// </summary>
+    private static void FreeWindowConfig(ref WryWindowConfig config)
+    {
+        if (config.Title != IntPtr.Zero)
+        {
+            Marshal.FreeCoTaskMem(config.Title);
+            config.Title = IntPtr.Zero;
+        }
+    }
+
+    /// <summary>
+    /// Builds webview config with protocol handlers.
+    /// </summary>
+    private WryWebviewConfig BuildWebviewConfig()
+    {
+        var p = _startupParameters;
+        var config = WryWebviewConfig.CreateDefault();
+
+        // Set URL
         if (!string.IsNullOrEmpty(p.StartUrl))
-            wryParams.Url = Marshal.StringToCoTaskMemUTF8(p.StartUrl);
-        if (!string.IsNullOrEmpty(p.StartString))
-            wryParams.Html = Marshal.StringToCoTaskMemUTF8(p.StartString);
-        if (!string.IsNullOrEmpty(p.UserAgent))
-            wryParams.UserAgent = Marshal.StringToCoTaskMemUTF8(p.UserAgent);
-        if (!string.IsNullOrEmpty(p.TemporaryFilesPath))
-            wryParams.DataDirectory = Marshal.StringToCoTaskMemUTF8(p.TemporaryFilesPath);
+        {
+            config.Url = Marshal.StringToCoTaskMemUTF8(p.StartUrl);
+        }
 
-        return wryParams;
+        // Set devtools
+        config.Devtools = p.DevToolsEnabled;
+
+        // Build protocol handlers if we have custom schemes
+        if (CustomSchemes.Count > 0)
+        {
+            BuildProtocolConfig(ref config);
+        }
+
+        return config;
     }
 
     /// <summary>
-    /// Frees string pointers in WryWindowParams after window creation.
+    /// Builds the protocol handler configuration.
     /// </summary>
-    private static void FreeWryParams(ref WryWindowParams p)
+    private void BuildProtocolConfig(ref WryWebviewConfig config)
     {
-        if (p.Title != IntPtr.Zero) Marshal.FreeCoTaskMem(p.Title);
-        if (p.Url != IntPtr.Zero) Marshal.FreeCoTaskMem(p.Url);
-        if (p.Html != IntPtr.Zero) Marshal.FreeCoTaskMem(p.Html);
-        if (p.UserAgent != IntPtr.Zero) Marshal.FreeCoTaskMem(p.UserAgent);
-        if (p.DataDirectory != IntPtr.Zero) Marshal.FreeCoTaskMem(p.DataDirectory);
+        // For now, we only support a single protocol handler (the first one)
+        // In the future we could support multiple
+        var firstScheme = CustomSchemes.Keys.First();
+
+        // Create the native callback
+        WryCustomProtocolHandler nativeCallback = HandleProtocolRequest;
+
+        // Pin the callback
+        var callbackHandle = GCHandle.Alloc(nativeCallback);
+        var callbackPtr = Marshal.GetFunctionPointerForDelegate(nativeCallback);
+
+        // Allocate scheme string
+        var schemePtr = Marshal.StringToCoTaskMemUTF8(firstScheme);
+
+        // Create definition
+        var definitions = new WryCustomProtocolDefinition[]
+        {
+            new()
+            {
+                Scheme = schemePtr,
+                Handler = callbackPtr,
+                UserData = IntPtr.Zero,
+            }
+        };
+
+        // Pin definitions array
+        var definitionsHandle = GCHandle.Alloc(definitions, GCHandleType.Pinned);
+        var definitionsPtr = definitionsHandle.AddrOfPinnedObject();
+
+        // Store state for cleanup
+        _protocolState = new ProtocolHandlerState
+        {
+            NativeCallback = nativeCallback,
+            CallbackHandle = callbackHandle,
+            SchemePtr = schemePtr,
+            DefinitionsHandle = definitionsHandle,
+            DefinitionsPtr = definitionsPtr,
+            Definitions = definitions,
+        };
+
+        // Set in config
+        config.CustomProtocols = new WryCustomProtocolList
+        {
+            Protocols = definitionsPtr,
+            Count = 1,
+        };
     }
 
     /// <summary>
-    /// Registers all callbacks with the native window.
-    /// Callbacks are pinned in the registry to prevent GC collection.
+    /// Handles a protocol request from the webview.
     /// </summary>
-    private void RegisterCallbacks()
+    private bool HandleProtocolRequest(IntPtr requestPtr, IntPtr responsePtr, IntPtr userData)
     {
-        // Message callback
-        _messageCallback = OnWryMessageReceived;
-        _callbackRegistry.Register(_wryWindow, _messageCallback);
-        WryInterop.WindowSetMessageCallback(_wryWindow, _messageCallback, IntPtr.Zero);
-
-        // Closing callback
-        _closingCallback = OnWryClosing;
-        _callbackRegistry.Register(_wryWindow, _closingCallback);
-        WryInterop.WindowSetClosingCallback(_wryWindow, _closingCallback, IntPtr.Zero);
-
-        // Resized callback
-        _resizedCallback = OnWryResized;
-        _callbackRegistry.Register(_wryWindow, _resizedCallback);
-        WryInterop.WindowSetResizedCallback(_wryWindow, _resizedCallback, IntPtr.Zero);
-
-        // Moved callback
-        _movedCallback = OnWryMoved;
-        _callbackRegistry.Register(_wryWindow, _movedCallback);
-        WryInterop.WindowSetMovedCallback(_wryWindow, _movedCallback, IntPtr.Zero);
-
-        // Focus callback
-        _focusCallback = OnWryFocusChanged;
-        _callbackRegistry.Register(_wryWindow, _focusCallback);
-        WryInterop.WindowSetFocusCallback(_wryWindow, _focusCallback, IntPtr.Zero);
-
-        // Navigation callback
-        _navigationCallback = OnWryNavigationStarting;
-        _callbackRegistry.Register(_wryWindow, _navigationCallback);
-        WryInterop.WindowSetNavigationCallback(_wryWindow, _navigationCallback, IntPtr.Zero);
-    }
-
-    // ========================================================================
-    // Native callback handlers
-    // ========================================================================
-
-    private void OnWryMessageReceived(IntPtr window, IntPtr messagePtr, IntPtr userData)
-    {
-        var message = messagePtr != IntPtr.Zero ? Marshal.PtrToStringUTF8(messagePtr) : null;
-        if (message != null)
+        try
         {
-            OnWebMessageReceived(message);
+            // Read request
+            var request = Marshal.PtrToStructure<WryCustomProtocolRequest>(requestPtr);
+            var url = request.Url != IntPtr.Zero ? Marshal.PtrToStringUTF8(request.Url) : null;
+
+            if (string.IsNullOrEmpty(url))
+                return false;
+
+            // Parse URL to get scheme
+            Uri uri;
+            try
+            {
+                uri = new Uri(url);
+            }
+            catch
+            {
+                return false;
+            }
+
+            // Find handler
+            if (!CustomSchemes.TryGetValue(uri.Scheme, out var handler) || handler == null)
+                return false;
+
+            // Call handler
+            var stream = handler.Invoke(this, uri.Scheme, url, out var contentType);
+            if (stream == null)
+                return false;
+
+            // Read stream
+            using var ms = new MemoryStream();
+            stream.CopyTo(ms);
+            var bodyBytes = ms.ToArray();
+            stream.Dispose();
+
+            // Allocate response body - Rust will call our free function
+            var bodyPtr = Marshal.AllocHGlobal(bodyBytes.Length);
+            Marshal.Copy(bodyBytes, 0, bodyPtr, bodyBytes.Length);
+
+            // Allocate mime type
+            var mimePtr = Marshal.StringToCoTaskMemUTF8(contentType ?? "application/octet-stream");
+
+            // Create free delegate
+            WryCustomProtocolResponseFree freeCallback = FreeResponseData;
+            var freeHandle = GCHandle.Alloc(freeCallback);
+            var freePtr = Marshal.GetFunctionPointerForDelegate(freeCallback);
+
+            // Store the body pointer as user data so we can free it
+            // Actually, we need to track both bodyPtr and mimePtr
+            // For simplicity, we'll just leak the mime type for now (small)
+            // and free the body
+
+            // Build response
+            var response = new WryCustomProtocolResponse
+            {
+                Status = 200,
+                Headers = default,
+                Body = new WryCustomProtocolBuffer { Ptr = bodyPtr, Len = (nuint)bodyBytes.Length },
+                MimeType = mimePtr,
+                Free = freePtr,
+                UserData = bodyPtr, // Pass body ptr so we can free it
+            };
+
+            // Write response
+            Marshal.StructureToPtr(response, responsePtr, false);
+
+            // Keep the free callback alive
+            _callbackRegistry.Register(_wryWindow, freeCallback);
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log($"Protocol handler error: {ex.Message}");
+            return false;
         }
     }
 
-    private bool OnWryClosing(IntPtr window, IntPtr userData)
+    /// <summary>
+    /// Frees response data allocated by the protocol handler.
+    /// </summary>
+    private static void FreeResponseData(IntPtr userData)
     {
-        // OnWindowClosing returns 1 (true) if close should be prevented
-        var preventClose = OnWindowClosing();
-        return preventClose == 0; // Return true to allow close
-    }
-
-    private void OnWryResized(IntPtr window, uint width, uint height, IntPtr userData)
-    {
-        OnSizeChanged((int)width, (int)height);
-    }
-
-    private void OnWryMoved(IntPtr window, int x, int y, IntPtr userData)
-    {
-        OnLocationChanged(x, y);
-    }
-
-    private void OnWryFocusChanged(IntPtr window, bool focused, IntPtr userData)
-    {
-        if (focused)
-            OnFocusIn();
-        else
-            OnFocusOut();
-    }
-
-    private bool OnWryNavigationStarting(IntPtr window, IntPtr urlPtr, IntPtr userData)
-    {
-        var url = urlPtr != IntPtr.Zero ? Marshal.PtrToStringUTF8(urlPtr) : null;
-        if (url == null)
-            return true; // Allow navigation if URL is null
-
-        return OnNavigationStarting(url);
+        if (userData != IntPtr.Zero)
+        {
+            Marshal.FreeHGlobal(userData);
+        }
     }
 
     // ========================================================================
-    // Invoke implementation using wry_invoke_sync
+    // Event Loop Implementation
     // ========================================================================
 
     /// <summary>
-    /// Dispatches an Action to the UI thread using wry_invoke_sync.
-    /// This version properly pins the delegate for the duration of the call.
+    /// Runs the event loop until exit is requested.
     /// </summary>
-    private TauriWindow InvokeWry(Action workItem)
+    private void RunEventLoop()
     {
-        if (_wryApp == null || _wryApp.IsInvalid)
+        var eventLoop = EnsureEventLoop();
+
+        // Create and pin the callback
+        _eventLoopCallback = HandleEventLoopEvent;
+        _callbackRegistry.Register(_wryWindow, _eventLoopCallback);
+
+        // Run the pump
+        WryInterop.EventLoopPump(eventLoop.DangerousGetRawHandle(), _eventLoopCallback, IntPtr.Zero);
+    }
+
+    /// <summary>
+    /// Handles events from the event loop.
+    /// </summary>
+    private WryEventLoopControlFlow HandleEventLoopEvent(IntPtr eventJsonPtr, IntPtr userData)
+    {
+        if (_shouldExit)
+            return WryEventLoopControlFlow.Exit;
+
+        if (eventJsonPtr == IntPtr.Zero)
+            return WryEventLoopControlFlow.Wait;
+
+        try
         {
-            // No app yet, just execute directly
-            workItem();
-            return this;
+            var json = Marshal.PtrToStringUTF8(eventJsonPtr);
+            if (string.IsNullOrEmpty(json))
+                return WryEventLoopControlFlow.Wait;
+
+            // Parse and dispatch event
+            DispatchEvent(json);
+        }
+        catch (Exception ex)
+        {
+            Log($"Event handling error: {ex.Message}");
         }
 
-        if (Environment.CurrentManagedThreadId == _managedThreadId)
+        return _shouldExit ? WryEventLoopControlFlow.Exit : WryEventLoopControlFlow.Wait;
+    }
+
+    /// <summary>
+    /// Dispatches a JSON event to the appropriate handler.
+    /// </summary>
+    private void DispatchEvent(string json)
+    {
+        try
         {
-            // Already on UI thread
-            workItem();
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+
+            if (!root.TryGetProperty("type", out var typeElement))
+                return;
+
+            var eventType = typeElement.GetString();
+            var windowId = root.TryGetProperty("window_id", out var widEl) ? widEl.GetString() : null;
+
+            // Only process events for our window (or global events)
+            if (windowId != null && _windowIdentifier != null && windowId != _windowIdentifier)
+                return;
+
+            switch (eventType)
+            {
+                case "window-close-requested":
+                    var preventClose = OnWindowClosing();
+                    if (preventClose == 0)
+                    {
+                        _shouldExit = true;
+                    }
+                    break;
+
+                case "window-destroyed":
+                    _shouldExit = true;
+                    break;
+
+                case "window-resized":
+                    if (root.TryGetProperty("size", out var sizeEl))
+                    {
+                        var width = sizeEl.TryGetProperty("width", out var w) ? (int)w.GetDouble() : 0;
+                        var height = sizeEl.TryGetProperty("height", out var h) ? (int)h.GetDouble() : 0;
+                        OnSizeChanged(width, height);
+                    }
+                    break;
+
+                case "window-moved":
+                    if (root.TryGetProperty("position", out var posEl))
+                    {
+                        var x = posEl.TryGetProperty("x", out var xVal) ? (int)xVal.GetDouble() : 0;
+                        var y = posEl.TryGetProperty("y", out var yVal) ? (int)yVal.GetDouble() : 0;
+                        OnLocationChanged(x, y);
+                    }
+                    break;
+
+                case "window-focused":
+                    if (root.TryGetProperty("isFocused", out var focusedEl))
+                    {
+                        if (focusedEl.GetBoolean())
+                            OnFocusIn();
+                        else
+                            OnFocusOut();
+                    }
+                    break;
+
+                case "user-exit":
+                    _shouldExit = true;
+                    break;
+
+                case "loop-destroyed":
+                    _shouldExit = true;
+                    break;
+
+                // These events don't need handling for basic functionality
+                case "new-events":
+                case "main-events-cleared":
+                case "redraw-events-cleared":
+                case "window-redraw-requested":
+                case "window-cursor-moved":
+                case "window-cursor-entered":
+                case "window-cursor-left":
+                case "window-modifiers-changed":
+                    break;
+
+                default:
+                    // Log unknown events for debugging
+                    if (LogVerbosity >= 3)
+                    {
+                        Log($"Unhandled event: {eventType}");
+                    }
+                    break;
+            }
         }
-        else
+        catch (JsonException ex)
         {
-            // Need to dispatch to UI thread
-            InvokeCallbackNative callback = _ => workItem();
-            using var pinned = new PinnedDelegate(callback);
-            WryInterop.InvokeSync(_wryApp.DangerousGetRawHandle(), callback, IntPtr.Zero);
+            Log($"JSON parse error: {ex.Message}");
         }
-        return this;
     }
 
     // ========================================================================
@@ -333,17 +526,26 @@ public partial class TauriWindow : IDisposable
         if (disposing)
         {
             // Managed cleanup
-            // Unregister callbacks
             if (_wryWindow != IntPtr.Zero)
             {
                 _callbackRegistry.Unregister(_wryWindow);
             }
+
+            // Free protocol state
+            _protocolState?.Free();
+            _protocolState = null;
         }
 
         // Unmanaged cleanup
+        if (_wryWebview != IntPtr.Zero)
+        {
+            WryInterop.WebviewFree(_wryWebview);
+            _wryWebview = IntPtr.Zero;
+        }
+
         if (_wryWindow != IntPtr.Zero)
         {
-            WryInterop.WindowDestroy(_wryWindow);
+            WryInterop.WindowFree(_wryWindow);
             _wryWindow = IntPtr.Zero;
             _nativeInstance = IntPtr.Zero;
         }

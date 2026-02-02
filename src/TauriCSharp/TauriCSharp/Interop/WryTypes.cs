@@ -1,165 +1,407 @@
 // wry-ffi C# bindings - Type definitions
 // These structs must match the Rust FFI types exactly for correct marshalling
+// Based on Velox's runtime-wry-ffi types
 
 using System.Runtime.InteropServices;
 
 namespace TauriCSharp.Interop;
 
+// ============================================================================
+// Basic Types
+// ============================================================================
+
 /// <summary>
-/// Window creation parameters matching Rust WryWindowParams.
-/// All strings are UTF-8 null-terminated pointers.
+/// RGBA color matching Rust WryColor.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
-internal struct WryWindowParams
+internal struct WryColor
 {
-    // Strings (UTF-8, null-terminated)
-    public IntPtr Title;
-    public IntPtr Url;
-    public IntPtr Html;
-    public IntPtr UserAgent;
-    public IntPtr DataDirectory;
+    public byte Red;
+    public byte Green;
+    public byte Blue;
+    public byte Alpha;
 
-    // Dimensions
-    public int X;
-    public int Y;
-    public uint Width;
-    public uint Height;
-    public uint MinWidth;
-    public uint MinHeight;
-    public uint MaxWidth;   // 0 = no max
-    public uint MaxHeight;  // 0 = no max
-
-    // Flags (C bool = 1 byte, but Rust bool is also 1 byte)
-    [MarshalAs(UnmanagedType.U1)]
-    public bool Resizable;
-    [MarshalAs(UnmanagedType.U1)]
-    public bool Fullscreen;
-    [MarshalAs(UnmanagedType.U1)]
-    public bool Maximized;
-    [MarshalAs(UnmanagedType.U1)]
-    public bool Minimized;
-    [MarshalAs(UnmanagedType.U1)]
-    public bool Visible;
-    [MarshalAs(UnmanagedType.U1)]
-    public bool Transparent;
-    [MarshalAs(UnmanagedType.U1)]
-    public bool Decorations;
-    [MarshalAs(UnmanagedType.U1)]
-    public bool AlwaysOnTop;
-    [MarshalAs(UnmanagedType.U1)]
-    public bool DevtoolsEnabled;
-    [MarshalAs(UnmanagedType.U1)]
-    public bool AutoplayEnabled;
-
-    /// <summary>
-    /// Creates default parameters matching Rust's Default implementation.
-    /// </summary>
-    public static WryWindowParams CreateDefault()
+    public WryColor(byte red, byte green, byte blue, byte alpha = 255)
     {
-        return new WryWindowParams
-        {
-            Title = IntPtr.Zero,
-            Url = IntPtr.Zero,
-            Html = IntPtr.Zero,
-            UserAgent = IntPtr.Zero,
-            DataDirectory = IntPtr.Zero,
-            X = 0,
-            Y = 0,
-            Width = 800,
-            Height = 600,
-            MinWidth = 0,
-            MinHeight = 0,
-            MaxWidth = 0,
-            MaxHeight = 0,
-            Resizable = true,
-            Fullscreen = false,
-            Maximized = false,
-            Minimized = false,
-            Visible = true,
-            Transparent = false,
-            Decorations = true,
-            AlwaysOnTop = false,
-            DevtoolsEnabled = true,
-            AutoplayEnabled = false,
-        };
+        Red = red;
+        Green = green;
+        Blue = blue;
+        Alpha = alpha;
     }
 }
 
 /// <summary>
-/// Window size matching Rust WrySize.
+/// Point with f64 coordinates matching Rust WryPoint.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
-internal struct WrySize
+internal struct WryPoint
 {
-    public uint Width;
-    public uint Height;
+    public double X;
+    public double Y;
 
-    public WrySize(uint width, uint height)
-    {
-        Width = width;
-        Height = height;
-    }
-
-    public static WrySize Default => new(0, 0);
-}
-
-/// <summary>
-/// Window position matching Rust WryPosition.
-/// </summary>
-[StructLayout(LayoutKind.Sequential)]
-internal struct WryPosition
-{
-    public int X;
-    public int Y;
-
-    public WryPosition(int x, int y)
+    public WryPoint(double x, double y)
     {
         X = x;
         Y = y;
     }
-
-    public static WryPosition Default => new(0, 0);
 }
 
 /// <summary>
-/// Result type for FFI operations matching Rust WryResult.
+/// Size with f64 dimensions matching Rust WrySize.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
-internal struct WryResult
+internal struct WrySize
 {
-    [MarshalAs(UnmanagedType.U1)]
-    public bool Success;
-    public int ErrorCode;
-    public IntPtr ErrorMessage;  // Pointer to error string (do not free - points to thread-local storage)
+    public double Width;
+    public double Height;
 
-    public bool IsOk => Success;
-    public bool IsError => !Success;
-
-    /// <summary>
-    /// Gets the error message if present. Does not free the pointer.
-    /// </summary>
-    public string? GetErrorMessage()
+    public WrySize(double width, double height)
     {
-        if (ErrorMessage == IntPtr.Zero)
-            return null;
-        return Marshal.PtrToStringUTF8(ErrorMessage);
-    }
-
-    /// <summary>
-    /// Throws an exception if the result indicates an error.
-    /// </summary>
-    public void ThrowIfError()
-    {
-        if (!Success)
-        {
-            var message = GetErrorMessage() ?? $"wry-ffi error code {ErrorCode}";
-            throw new WryException(message, (WryErrorCode)ErrorCode);
-        }
+        Width = width;
+        Height = height;
     }
 }
 
+// ============================================================================
+// Enums
+// ============================================================================
+
 /// <summary>
-/// Error codes matching Rust WryErrorCode enum.
+/// Window theme matching Rust WryWindowTheme.
+/// </summary>
+internal enum WryWindowTheme
+{
+    Unspecified = 0,
+    Light = 1,
+    Dark = 2,
+}
+
+/// <summary>
+/// macOS activation policy matching Rust WryActivationPolicy.
+/// </summary>
+internal enum WryActivationPolicy
+{
+    Regular = 0,
+    Accessory = 1,
+    Prohibited = 2,
+}
+
+/// <summary>
+/// Event loop control flow matching Rust WryEventLoopControlFlow.
+/// </summary>
+internal enum WryEventLoopControlFlow
+{
+    Poll = 0,
+    Wait = 1,
+    Exit = 2,
+}
+
+/// <summary>
+/// User attention type matching Rust WryUserAttentionType.
+/// </summary>
+internal enum WryUserAttentionType
+{
+    Informational = 0,
+    Critical = 1,
+}
+
+/// <summary>
+/// Resize direction matching Rust WryResizeDirection.
+/// </summary>
+internal enum WryResizeDirection
+{
+    East = 0,
+    North = 1,
+    NorthEast = 2,
+    NorthWest = 3,
+    South = 4,
+    SouthEast = 5,
+    SouthWest = 6,
+    West = 7,
+}
+
+/// <summary>
+/// Message dialog level matching Rust WryMessageDialogLevel.
+/// </summary>
+internal enum WryMessageDialogLevel
+{
+    Info = 0,
+    Warning = 1,
+    Error = 2,
+}
+
+/// <summary>
+/// Message dialog buttons matching Rust WryMessageDialogButtons.
+/// </summary>
+internal enum WryMessageDialogButtons
+{
+    Ok = 0,
+    OkCancel = 1,
+    YesNo = 2,
+    YesNoCancel = 3,
+}
+
+// ============================================================================
+// Config Structs
+// ============================================================================
+
+/// <summary>
+/// Window creation config matching Rust WryWindowConfig.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryWindowConfig
+{
+    public uint Width;
+    public uint Height;
+    public IntPtr Title; // *const c_char
+
+    public static WryWindowConfig CreateDefault() => new()
+    {
+        Width = 800,
+        Height = 600,
+        Title = IntPtr.Zero,
+    };
+}
+
+/// <summary>
+/// Webview creation config matching Rust WryWebviewConfig.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryWebviewConfig
+{
+    public IntPtr Url;  // *const c_char
+    public WryCustomProtocolList CustomProtocols;
+    [MarshalAs(UnmanagedType.U1)]
+    public bool Devtools;
+    [MarshalAs(UnmanagedType.U1)]
+    public bool IsChild;
+    public double X;
+    public double Y;
+    public double Width;
+    public double Height;
+
+    public static WryWebviewConfig CreateDefault() => new()
+    {
+        Url = IntPtr.Zero,
+        CustomProtocols = default,
+        Devtools = true,
+        IsChild = false,
+        X = 0,
+        Y = 0,
+        Width = 0,
+        Height = 0,
+    };
+}
+
+// ============================================================================
+// Custom Protocol Types
+// ============================================================================
+
+/// <summary>
+/// HTTP header for custom protocol matching Rust WryCustomProtocolHeader.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryCustomProtocolHeader
+{
+    public IntPtr Name;  // *const c_char
+    public IntPtr Value; // *const c_char
+}
+
+/// <summary>
+/// Header list matching Rust WryCustomProtocolHeaderList.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryCustomProtocolHeaderList
+{
+    public IntPtr Headers; // *const WryCustomProtocolHeader
+    public nuint Count;
+}
+
+/// <summary>
+/// Binary buffer matching Rust WryCustomProtocolBuffer.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryCustomProtocolBuffer
+{
+    public IntPtr Ptr; // *const u8
+    public nuint Len;
+}
+
+/// <summary>
+/// Request from webview matching Rust WryCustomProtocolRequest.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryCustomProtocolRequest
+{
+    public IntPtr Url;       // *const c_char
+    public IntPtr Method;    // *const c_char
+    public WryCustomProtocolHeaderList Headers;
+    public WryCustomProtocolBuffer Body;
+    public IntPtr WebviewId; // *const c_char
+}
+
+/// <summary>
+/// Response to webview matching Rust WryCustomProtocolResponse.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryCustomProtocolResponse
+{
+    public ushort Status;
+    public WryCustomProtocolHeaderList Headers;
+    public WryCustomProtocolBuffer Body;
+    public IntPtr MimeType;  // *const c_char
+    public IntPtr Free;      // WryCustomProtocolResponseFree
+    public IntPtr UserData;  // *mut c_void
+}
+
+/// <summary>
+/// Protocol definition for registration matching Rust WryCustomProtocolDefinition.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryCustomProtocolDefinition
+{
+    public IntPtr Scheme;   // *const c_char
+    public IntPtr Handler;  // WryCustomProtocolHandler function pointer
+    public IntPtr UserData; // *mut c_void
+}
+
+/// <summary>
+/// List of protocol definitions matching Rust WryCustomProtocolList.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryCustomProtocolList
+{
+    public IntPtr Protocols; // *const WryCustomProtocolDefinition
+    public nuint Count;
+}
+
+// ============================================================================
+// Dialog Types
+// ============================================================================
+
+/// <summary>
+/// File filter for dialogs matching Rust WryDialogFilter.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryDialogFilter
+{
+    public IntPtr Label;          // *const c_char
+    public IntPtr Extensions;     // *const *const c_char
+    public nuint ExtensionCount;
+}
+
+/// <summary>
+/// Open dialog options matching Rust WryDialogOpenOptions.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryDialogOpenOptions
+{
+    public IntPtr Title;       // *const c_char
+    public IntPtr DefaultPath; // *const c_char
+    public IntPtr Filters;     // *const WryDialogFilter
+    public nuint FilterCount;
+    [MarshalAs(UnmanagedType.U1)]
+    public bool AllowDirectories;
+    [MarshalAs(UnmanagedType.U1)]
+    public bool AllowMultiple;
+}
+
+/// <summary>
+/// Save dialog options matching Rust WryDialogSaveOptions.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryDialogSaveOptions
+{
+    public IntPtr Title;       // *const c_char
+    public IntPtr DefaultPath; // *const c_char
+    public IntPtr DefaultName; // *const c_char
+    public IntPtr Filters;     // *const WryDialogFilter
+    public nuint FilterCount;
+}
+
+/// <summary>
+/// Dialog selection result matching Rust WryDialogSelection.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryDialogSelection
+{
+    public IntPtr Paths; // *mut *mut c_char
+    public nuint Count;
+}
+
+/// <summary>
+/// Message dialog options matching Rust WryMessageDialogOptions.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryMessageDialogOptions
+{
+    public IntPtr Title;       // *const c_char
+    public IntPtr Message;     // *const c_char
+    public WryMessageDialogLevel Level;
+    public WryMessageDialogButtons Buttons;
+    public IntPtr OkLabel;     // *const c_char
+    public IntPtr CancelLabel; // *const c_char
+    public IntPtr YesLabel;    // *const c_char
+    public IntPtr NoLabel;     // *const c_char
+}
+
+/// <summary>
+/// Confirm dialog options matching Rust WryConfirmDialogOptions.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryConfirmDialogOptions
+{
+    public IntPtr Title;       // *const c_char
+    public IntPtr Message;     // *const c_char
+    public WryMessageDialogLevel Level;
+    public IntPtr OkLabel;     // *const c_char
+    public IntPtr CancelLabel; // *const c_char
+}
+
+/// <summary>
+/// Ask dialog options matching Rust WryAskDialogOptions.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryAskDialogOptions
+{
+    public IntPtr Title;   // *const c_char
+    public IntPtr Message; // *const c_char
+    public WryMessageDialogLevel Level;
+    public IntPtr YesLabel; // *const c_char
+    public IntPtr NoLabel;  // *const c_char
+}
+
+/// <summary>
+/// Prompt dialog options matching Rust WryPromptDialogOptions.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryPromptDialogOptions
+{
+    public IntPtr Title;        // *const c_char
+    public IntPtr Message;      // *const c_char
+    public IntPtr Placeholder;  // *const c_char
+    public IntPtr DefaultValue; // *const c_char
+    public IntPtr OkLabel;      // *const c_char
+    public IntPtr CancelLabel;  // *const c_char
+}
+
+/// <summary>
+/// Prompt dialog result matching Rust WryPromptDialogResult.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryPromptDialogResult
+{
+    public IntPtr Value; // *mut c_char
+    [MarshalAs(UnmanagedType.U1)]
+    public bool Accepted;
+}
+
+// ============================================================================
+// Error Handling (legacy - kept for compatibility)
+// ============================================================================
+
+/// <summary>
+/// Error codes for legacy API compatibility.
 /// </summary>
 public enum WryErrorCode
 {

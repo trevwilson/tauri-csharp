@@ -1,7 +1,7 @@
 // TauriWindow wry-ffi compatibility layer
 // This partial class provides compatibility implementations for features that need
-// to be migrated from Photino to wry-ffi. Some features throw NotSupportedException
-// when not yet implemented in wry-ffi.
+// to be migrated from Photino to the Velox-based wry-ffi backend.
+// Updated for the new separate event loop, window, and webview architecture.
 
 using System.Drawing;
 using System.Runtime.InteropServices;
@@ -13,7 +13,7 @@ namespace TauriCSharp;
 public partial class TauriWindow
 {
     // ========================================================================
-    // Window Properties - implemented via wry-ffi
+    // Window Properties - implemented via Velox wry-ffi
     // ========================================================================
 
     /// <summary>
@@ -21,11 +21,14 @@ public partial class TauriWindow
     /// </summary>
     private Size GetSizeWry()
     {
-        if (_nativeInstance == IntPtr.Zero)
+        if (_wryWindow == IntPtr.Zero)
             return new Size(_startupParameters.Width, _startupParameters.Height);
 
-        var size = WryInterop.WindowGetSize(_nativeInstance);
-        return new Size((int)size.Width, (int)size.Height);
+        if (WryInterop.WindowInnerSize(_wryWindow, out var size))
+        {
+            return new Size((int)size.Width, (int)size.Height);
+        }
+        return new Size(_startupParameters.Width, _startupParameters.Height);
     }
 
     /// <summary>
@@ -33,7 +36,10 @@ public partial class TauriWindow
     /// </summary>
     private void SetSizeWry(int width, int height)
     {
-        WryInterop.WindowSetSize(_nativeInstance, new WrySize((uint)width, (uint)height));
+        if (_wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowSetSize(_wryWindow, width, height);
+        }
     }
 
     /// <summary>
@@ -41,11 +47,14 @@ public partial class TauriWindow
     /// </summary>
     private Point GetPositionWry()
     {
-        if (_nativeInstance == IntPtr.Zero)
+        if (_wryWindow == IntPtr.Zero)
             return new Point(_startupParameters.Left, _startupParameters.Top);
 
-        var pos = WryInterop.WindowGetPosition(_nativeInstance);
-        return new Point(pos.X, pos.Y);
+        if (WryInterop.WindowOuterPosition(_wryWindow, out var pos))
+        {
+            return new Point((int)pos.X, (int)pos.Y);
+        }
+        return new Point(_startupParameters.Left, _startupParameters.Top);
     }
 
     /// <summary>
@@ -53,7 +62,10 @@ public partial class TauriWindow
     /// </summary>
     private void SetPositionWry(int x, int y)
     {
-        WryInterop.WindowSetPosition(_nativeInstance, new WryPosition(x, y));
+        if (_wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowSetPosition(_wryWindow, x, y);
+        }
     }
 
     /// <summary>
@@ -61,11 +73,15 @@ public partial class TauriWindow
     /// </summary>
     private string GetTitleWry()
     {
-        if (_nativeInstance == IntPtr.Zero)
+        if (_wryWindow == IntPtr.Zero)
             return _startupParameters.Title ?? "TauriCSharp";
 
-        using var nativeStr = new WryNativeString(WryInterop.WindowGetTitle(_nativeInstance));
-        return nativeStr.Value ?? "";
+        var titlePtr = WryInterop.WindowTitle(_wryWindow);
+        if (titlePtr != IntPtr.Zero)
+        {
+            return Marshal.PtrToStringUTF8(titlePtr) ?? "";
+        }
+        return _startupParameters.Title ?? "";
     }
 
     /// <summary>
@@ -73,7 +89,10 @@ public partial class TauriWindow
     /// </summary>
     private void SetTitleWry(string title)
     {
-        WryInterop.WindowSetTitle(_nativeInstance, title);
+        if (_wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowSetTitle(_wryWindow, title);
+        }
     }
 
     /// <summary>
@@ -81,7 +100,10 @@ public partial class TauriWindow
     /// </summary>
     private void SetFullscreenWry(bool fullscreen)
     {
-        WryInterop.WindowSetFullscreen(_nativeInstance, fullscreen);
+        if (_wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowSetFullscreen(_wryWindow, fullscreen);
+        }
     }
 
     /// <summary>
@@ -89,7 +111,10 @@ public partial class TauriWindow
     /// </summary>
     private void MinimizeWry()
     {
-        WryInterop.WindowMinimize(_nativeInstance);
+        if (_wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowSetMinimized(_wryWindow, true);
+        }
     }
 
     /// <summary>
@@ -97,23 +122,149 @@ public partial class TauriWindow
     /// </summary>
     private void MaximizeWry()
     {
-        WryInterop.WindowMaximize(_nativeInstance);
+        if (_wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowSetMaximized(_wryWindow, true);
+        }
     }
 
     /// <summary>
-    /// Sets zoom using wry-ffi.
+    /// Restores the window using wry-ffi.
+    /// </summary>
+    private void RestoreWry()
+    {
+        if (_wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowSetMinimized(_wryWindow, false);
+            WryInterop.WindowSetMaximized(_wryWindow, false);
+        }
+    }
+
+    /// <summary>
+    /// Sets zoom using wry-ffi (on webview, not window).
     /// </summary>
     private void SetZoomWry(int zoomPercent)
     {
-        WryInterop.WebViewSetZoom(_nativeInstance, zoomPercent / 100.0);
+        if (_wryWebview != IntPtr.Zero)
+        {
+            WryInterop.WebviewSetZoom(_wryWebview, zoomPercent / 100.0);
+        }
     }
 
     /// <summary>
-    /// Sends a message to the webview using wry-ffi.
+    /// Sends a message to the webview by executing script.
     /// </summary>
     private void SendWebMessageWry(string message)
     {
-        WryInterop.WebViewSendMessage(_nativeInstance, message).ThrowIfError();
+        if (_wryWebview != IntPtr.Zero)
+        {
+            // Escape the message for JavaScript
+            var escapedMessage = message
+                .Replace("\\", "\\\\")
+                .Replace("'", "\\'")
+                .Replace("\n", "\\n")
+                .Replace("\r", "\\r");
+
+            // The webview should have window.ipc.receive registered to handle this
+            var script = $"if (window.ipc && window.ipc.receive) {{ window.ipc.receive('{escapedMessage}'); }}";
+            WryInterop.WebviewEvaluateScript(_wryWebview, script);
+        }
+    }
+
+    /// <summary>
+    /// Executes script in the webview.
+    /// </summary>
+    private void ExecuteScriptWry(string script)
+    {
+        if (_wryWebview != IntPtr.Zero)
+        {
+            WryInterop.WebviewEvaluateScript(_wryWebview, script);
+        }
+    }
+
+    /// <summary>
+    /// Navigates the webview to a URL.
+    /// </summary>
+    private void NavigateWry(string url)
+    {
+        if (_wryWebview != IntPtr.Zero)
+        {
+            WryInterop.WebviewNavigate(_wryWebview, url);
+        }
+    }
+
+    /// <summary>
+    /// Gets the window visibility.
+    /// </summary>
+    private bool GetVisibleWry()
+    {
+        if (_wryWindow == IntPtr.Zero)
+            return true;
+
+        return WryInterop.WindowIsVisible(_wryWindow);
+    }
+
+    /// <summary>
+    /// Sets the window visibility.
+    /// </summary>
+    private void SetVisibleWry(bool visible)
+    {
+        if (_wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowSetVisible(_wryWindow, visible);
+        }
+    }
+
+    /// <summary>
+    /// Focuses the window.
+    /// </summary>
+    private void FocusWry()
+    {
+        if (_wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowFocus(_wryWindow);
+        }
+    }
+
+    /// <summary>
+    /// Sets min/max size using wry-ffi.
+    /// </summary>
+    private void SetMinSizeWry(int minWidth, int minHeight)
+    {
+        if (_wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowSetMinSize(_wryWindow, minWidth, minHeight);
+        }
+    }
+
+    private void SetMaxSizeWry(int maxWidth, int maxHeight)
+    {
+        if (_wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowSetMaxSize(_wryWindow, maxWidth, maxHeight);
+        }
+    }
+
+    /// <summary>
+    /// Gets whether the window is maximized.
+    /// </summary>
+    private bool GetMaximizedWry()
+    {
+        if (_wryWindow == IntPtr.Zero)
+            return _startupParameters.Maximized;
+
+        return WryInterop.WindowIsMaximized(_wryWindow);
+    }
+
+    /// <summary>
+    /// Gets whether the window is minimized.
+    /// </summary>
+    private bool GetMinimizedWry()
+    {
+        if (_wryWindow == IntPtr.Zero)
+            return _startupParameters.Minimized;
+
+        return WryInterop.WindowIsMinimized(_wryWindow);
     }
 
     // ========================================================================
@@ -124,6 +275,60 @@ public partial class TauriWindow
     {
         throw new NotSupportedException($"{feature} is not yet supported with the wry-ffi backend. " +
             "This feature will be implemented in a future release.");
+    }
+
+    // ========================================================================
+    // Invoke / Thread dispatch (simplified - runs inline for wry-ffi)
+    // ========================================================================
+
+    /// <summary>
+    /// Dispatches an action. For wry-ffi, actions run inline since
+    /// the event loop model doesn't support arbitrary dispatch.
+    /// </summary>
+    private TauriWindow InvokeWry(Action workItem)
+    {
+        // wry-ffi runs on a single thread with the event loop
+        // For now, just execute inline - proper dispatch would require
+        // sending a user event and processing it in the event loop callback
+        workItem();
+        return this;
+    }
+
+    /// <summary>
+    /// Closes the window by signaling exit.
+    /// </summary>
+    private void CloseWry()
+    {
+        _shouldExit = true;
+        // If we have a proxy, use it to request exit
+        _eventLoopProxy?.RequestExit();
+    }
+
+    /// <summary>
+    /// Navigates to a URL after window creation using wry-ffi.
+    /// </summary>
+    private void NavigateToUrlWry(string url)
+    {
+        if (_wryWebview != IntPtr.Zero)
+        {
+            WryInterop.WebviewNavigate(_wryWebview, url);
+        }
+    }
+
+    /// <summary>
+    /// Loads raw HTML string into the webview.
+    /// Note: wry-ffi doesn't have a direct LoadHtml, so we use a data URL.
+    /// </summary>
+    private void LoadHtmlWry(string html)
+    {
+        if (_wryWebview != IntPtr.Zero)
+        {
+            // Convert HTML to data URL
+            var bytes = System.Text.Encoding.UTF8.GetBytes(html);
+            var base64 = Convert.ToBase64String(bytes);
+            var dataUrl = $"data:text/html;base64,{base64}";
+            WryInterop.WebviewNavigate(_wryWebview, dataUrl);
+        }
     }
 
     // Platform-specific features that need platform-specific implementations
@@ -168,35 +373,4 @@ public partial class TauriWindow
 
     // Center functionality
     private void CenterNotSupported() => ThrowNotSupported("Window centering");
-
-    // ========================================================================
-    // Features that have partial support - need review
-    // ========================================================================
-
-    /// <summary>
-    /// wry-ffi doesn't currently support min/max size after window creation.
-    /// This is a no-op after creation.
-    /// </summary>
-    private void SetMinSizeWry(int minWidth, int minHeight)
-    {
-        // wry-ffi sets min/max size at creation time only
-        // Log a warning if called after creation
-        if (_nativeInstance != IntPtr.Zero)
-        {
-            Log("Warning: SetMinSize after window creation is not supported with wry-ffi backend");
-        }
-    }
-
-    /// <summary>
-    /// wry-ffi doesn't currently support min/max size after window creation.
-    /// This is a no-op after creation.
-    /// </summary>
-    private void SetMaxSizeWry(int maxWidth, int maxHeight)
-    {
-        // wry-ffi sets min/max size at creation time only
-        if (_nativeInstance != IntPtr.Zero)
-        {
-            Log("Warning: SetMaxSize after window creation is not supported with wry-ffi backend");
-        }
-    }
 }

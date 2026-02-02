@@ -656,10 +656,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return new Point(_startupParameters.Left, _startupParameters.Top);
 
-            var left = 0;
-            var top = 0;
-            var pos = WryInterop.WindowGetPosition(_nativeInstance); left = pos.X; top = pos.Y;
-            return new Point(left, top);
+            return GetPositionWry();
         }
         set
         {
@@ -671,7 +668,7 @@ public partial class TauriWindow
                     _startupParameters.Top = value.Y;
                 }
                 else
-                    WryInterop.WindowSetPosition(_nativeInstance, new WryPosition(value.X, value.Y));
+                    SetPositionWry(value.X, value.Y);
             }
         }
     }
@@ -703,9 +700,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.Maximized;
 
-            bool maximized = false;
-            maximized = false; // wry-ffi does not expose maximized getter
-            return maximized;
+            return GetMaximizedWry();
         }
         set
         {
@@ -713,8 +708,10 @@ public partial class TauriWindow
             {
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Maximized = value;
+                else if (value)
+                    MaximizeWry();
                 else
-                    if (value) WryInterop.WindowMaximize(_nativeInstance); else WryInterop.WindowUnmaximize(_nativeInstance);
+                    RestoreWry();
             }
         }
     }
@@ -779,9 +776,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.Minimized;
 
-            bool minimized = false;
-            minimized = false; // wry-ffi does not expose minimized getter
-            return minimized;
+            return GetMinimizedWry();
         }
         set
         {
@@ -789,8 +784,10 @@ public partial class TauriWindow
             {
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Minimized = value;
+                else if (value)
+                    MinimizeWry();
                 else
-                    if (value) WryInterop.WindowMinimize(_nativeInstance);
+                    RestoreWry();
             }
         }
     }
@@ -890,10 +887,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return new Size(_startupParameters.Width, _startupParameters.Height);
 
-            var width = 0;
-            var height = 0;
-            var size = WryInterop.WindowGetSize(_nativeInstance); width = (int)size.Width; height = (int)size.Height;
-            return new Size(width, height);
+            return GetSizeWry();
         }
         set
         {
@@ -905,7 +899,7 @@ public partial class TauriWindow
                     _startupParameters.Width = value.Width;
                 }
                 else
-                    WryInterop.WindowSetSize(_nativeInstance, new WrySize((uint)value.Width, (uint)value.Height));
+                    SetSizeWry(value.Width, value.Height);
             }
         }
     }
@@ -1013,10 +1007,10 @@ public partial class TauriWindow
     {
         get
         {
+            // CurrentUrl getter not supported in Velox wry-ffi - return start URL or null
             if (_nativeInstance == IntPtr.Zero)
                 return null;
-            using var nativeStr = new WryNativeString(WryInterop.WebViewGetUrl(_nativeInstance));
-            return nativeStr.Value;
+            return _startupParameters.StartUrl;
         }
     }
 
@@ -1087,8 +1081,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.Title;
 
-            using var nativeStr = new WryNativeString(WryInterop.WindowGetTitle(_nativeInstance));
-            return nativeStr.Value ?? "";
+            return GetTitleWry();
         }
         set
         {
@@ -1101,7 +1094,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Title = value;
                 else
-                    Invoke(() => WryInterop.WindowSetTitle(_nativeInstance, value));
+                    SetTitleWry(value);
             }
         }
     }
@@ -1430,7 +1423,7 @@ public partial class TauriWindow
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Zoom = value;
                 else
-                    WryInterop.WebViewSetZoom(_nativeInstance, value / 100.0);
+                    SetZoomWry(value);
             }
         }
     }
@@ -1510,7 +1503,7 @@ public partial class TauriWindow
         if (_nativeInstance == IntPtr.Zero)
             _startupParameters.StartUrl = uri.ToString();
         else
-            Invoke(() => Interop.WryInterop.WebViewNavigate(_nativeInstance, uri.ToString()).ThrowIfError());
+            NavigateWry(uri.ToString());
         return this;
     }
 
@@ -1581,7 +1574,7 @@ public partial class TauriWindow
         if (_nativeInstance == IntPtr.Zero)
             _startupParameters.StartString = content;
         else
-            Invoke(() => Interop.WryInterop.WebViewLoadHtml(_nativeInstance, content).ThrowIfError());
+            LoadHtmlWry(content);
         return this;
     }
 
@@ -2176,13 +2169,8 @@ public partial class TauriWindow
         if (_nativeInstance == IntPtr.Zero)
             throw new TauriInitializationException("Restore cannot be called until the window is initialized.");
 
-        Invoke(() =>
-        {
-            // Restore from maximized state
-            WryInterop.WindowUnmaximize(_nativeInstance);
-            // Restore from minimized state - set visible (shows the window)
-            WryInterop.WindowSetVisible(_nativeInstance, true);
-        });
+        RestoreWry();
+        SetVisibleWry(true);
         return this;
     }
 
@@ -2397,12 +2385,7 @@ public partial class TauriWindow
     /// </remarks>
     public void WaitForClose()
     {
-        // Register custom protocols before window creation
-        var app = EnsureWryApp();
-        foreach (var scheme in CustomSchemes)
-        {
-            RegisterWryProtocol(app, scheme.Key);
-        }
+        // Note: Custom protocols are now registered during webview creation in CreateWryWindow()
 
         var errors = _startupParameters.GetParamErrors();
         if (errors.Count == 0)
@@ -2410,7 +2393,7 @@ public partial class TauriWindow
             OnWindowCreating();
             try
             {
-                // Create window using wry-ffi
+                // Create window using wry-ffi (includes protocol handler setup)
                 CreateWryWindow();
             }
             catch (Exception ex)
@@ -2429,11 +2412,10 @@ public partial class TauriWindow
                 _messageLoopIsStarted = true;
                 try
                 {
-                    // Run the wry event loop - blocks until all windows close or quit is called
-                    var result = Interop.WryInterop.AppRun(app.DangerousGetRawHandle());
-                    result.ThrowIfError();
+                    // Run the wry event loop - blocks until exit is requested
+                    RunEventLoop();
                 }
-                catch (Interop.WryException ex)
+                catch (WryException ex)
                 {
                     Log($"***\n{ex.Message}\n{ex.StackTrace}\nError code: {ex.ErrorCode}");
                     throw new TauriInitializationException($"Event loop error: {ex.Message}", [ex.Message]);
@@ -2456,48 +2438,6 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Registers a custom protocol with the wry app.
-    /// </summary>
-    private void RegisterWryProtocol(Handles.WryAppHandle app, string scheme)
-    {
-        // The protocol callback needs to be pinned
-        Interop.CustomProtocolCallbackNative callback = (IntPtr window, IntPtr urlPtr, out IntPtr outData, out nuint outLen, out IntPtr outMimeType, IntPtr userData) =>
-        {
-            outData = IntPtr.Zero;
-            outLen = 0;
-            outMimeType = IntPtr.Zero;
-
-            var url = urlPtr != IntPtr.Zero ? Marshal.PtrToStringUTF8(urlPtr) : null;
-            if (url == null) return false;
-
-            try
-            {
-                var result = OnCustomScheme(url, out int numBytes, out string contentType);
-                if (result == IntPtr.Zero) return false;
-
-                outData = result;
-                outLen = (nuint)numBytes;
-
-                // Allocate and return the content type string
-                if (!string.IsNullOrEmpty(contentType))
-                {
-                    outMimeType = Marshal.StringToCoTaskMemUTF8(contentType);
-                }
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log($"Custom scheme error: {ex.Message}");
-                return false;
-            }
-        };
-
-        _callbackRegistry.Register(app.DangerousGetRawHandle(), callback);
-        Interop.WryInterop.RegisterProtocol(app.DangerousGetRawHandle(), scheme, callback, IntPtr.Zero).ThrowIfError();
-    }
-
-    /// <summary>
     /// Closes the native window.
     /// </summary>
     /// <exception cref="ApplicationException">
@@ -2508,7 +2448,7 @@ public partial class TauriWindow
         Log(".Close()");
         if (_nativeInstance == IntPtr.Zero)
             throw new TauriInitializationException("Close cannot be called until the window is initialized.");
-        Invoke(() => Interop.WryInterop.WindowClose(_nativeInstance));
+        CloseWry();
     }
 
     /// <summary>
@@ -2526,7 +2466,7 @@ public partial class TauriWindow
         Log($".SendWebMessage({message})");
         if (_nativeInstance == IntPtr.Zero)
             throw new TauriInitializationException("SendWebMessage cannot be called until the window is initialized.");
-        WryInterop.WebViewSendMessage(_nativeInstance, message).ThrowIfError();
+        SendWebMessageWry(message);
     }
 
     public async Task SendWebMessageAsync(string message)
@@ -2536,7 +2476,7 @@ public partial class TauriWindow
             Log($".SendWebMessage({message})");
             if (_nativeInstance == IntPtr.Zero)
                 throw new TauriInitializationException("SendWebMessage cannot be called until the window is initialized.");
-            WryInterop.WebViewSendMessage(_nativeInstance, message).ThrowIfError();
+            SendWebMessageWry(message);
         });
     }
 
@@ -2556,7 +2496,7 @@ public partial class TauriWindow
         Log($".ExecuteScript({script})");
         if (_nativeInstance == IntPtr.Zero)
             throw new TauriInitializationException("ExecuteScript cannot be called until the window is initialized.");
-        WryInterop.WebViewEvaluateScript(_nativeInstance, script).ThrowIfError();
+        ExecuteScriptWry(script);
     }
 
     /// <summary>
@@ -2585,7 +2525,8 @@ public partial class TauriWindow
             throw new TauriInitializationException("OpenDevTools cannot be called until the window is initialized.");
         if (!_startupParameters.DevToolsEnabled)
             Log("Warning: DevTools were not enabled at window creation time");
-        Invoke(() => WryInterop.WebViewOpenDevtools(_nativeInstance));
+        // DevTools open/close not exposed in Velox wry-ffi - they open via F12/right-click if enabled
+        Log("Note: DevTools controlled via F12/context menu when devtools enabled at creation time");
     }
 
     /// <summary>
@@ -2599,7 +2540,8 @@ public partial class TauriWindow
         Log(".CloseDevTools()");
         if (_nativeInstance == IntPtr.Zero)
             throw new TauriInitializationException("CloseDevTools cannot be called until the window is initialized.");
-        Invoke(() => WryInterop.WebViewCloseDevtools(_nativeInstance));
+        // DevTools open/close not exposed in Velox wry-ffi
+        Log("Note: CloseDevTools not available in wry-ffi backend");
     }
 
     /// <summary>
