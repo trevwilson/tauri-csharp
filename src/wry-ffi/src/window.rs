@@ -2,8 +2,11 @@
 //!
 //! Creates and manages windows with associated webviews.
 
+use std::borrow::Cow;
+use std::ffi::CStr;
 use std::os::raw::c_void;
 
+use http::{Response, StatusCode};
 use tao::dpi::{LogicalPosition, LogicalSize};
 use tao::event_loop::EventLoopProxy;
 use tao::window::{Window, WindowBuilder, WindowId};
@@ -140,7 +143,19 @@ pub unsafe extern "C" fn wry_window_create(
 
     // Build webview with IPC handler wired to callbacks
     let proxy = state.event_loop_proxy.clone();
-    let webview = create_webview_for_window(&window, params, window_id, proxy.clone());
+
+    // Clone the custom protocols for the webview
+    // We need to clone the HashMap since we can't borrow state during window creation
+    let protocols: Vec<_> = state.custom_protocols.iter()
+        .map(|(scheme, handler)| (scheme.clone(), handler.callback, handler.user_data))
+        .collect();
+
+    log::info!("Passing {} custom protocol(s) to webview", protocols.len());
+    for (scheme, _, _) in &protocols {
+        log::debug!("  - scheme: {}", scheme);
+    }
+
+    let webview = create_webview_for_window(&window, params, window_id, proxy.clone(), &protocols);
 
     let window_state = Box::new(WindowState {
         id: window_id,
@@ -159,17 +174,95 @@ pub unsafe extern "C" fn wry_window_create(
     ptr
 }
 
+/// Protocol info tuple: (scheme, callback, user_data)
+type ProtocolInfo = (String, crate::types::CustomProtocolCallback, *mut c_void);
+
 /// Create a webview for a window
 fn create_webview_for_window(
     window: &Window,
     params: &WryWindowParams,
     window_id: WindowId,
     _proxy: EventLoopProxy<UserEvent>,
+    protocols: &[ProtocolInfo],
 ) -> Option<WebView> {
     let mut builder = WebViewBuilder::new();
 
     // Inject the JavaScript bridge as an initialization script
     builder = builder.with_initialization_script(crate::bridge::BRIDGE_SCRIPT);
+
+    // Register custom protocols BEFORE setting URL
+    // Use async protocol handler - required for WebKitGTK to work properly
+    for (scheme, callback, user_data) in protocols.iter().cloned() {
+        log::info!("Registering custom protocol '{}' with webview (async)", scheme);
+        builder = builder.with_asynchronous_custom_protocol(
+            scheme.clone(),
+            move |_webview_id, request, responder| {
+                let uri = request.uri().to_string();
+                log::info!("Custom protocol request: {}", uri);
+
+                // Prepare output variables
+                let mut out_data: *const u8 = std::ptr::null();
+                let mut out_len: usize = 0;
+                let mut out_mime_type: *const std::ffi::c_char = std::ptr::null();
+
+                // Convert URI to C string
+                let uri_cstring = match std::ffi::CString::new(uri.clone()) {
+                    Ok(s) => s,
+                    Err(_) => {
+                        log::error!("Failed to convert URI to CString");
+                        responder.respond(
+                            Response::builder()
+                                .status(StatusCode::INTERNAL_SERVER_ERROR)
+                                .body(Cow::Borrowed(&[] as &[u8]))
+                                .unwrap(),
+                        );
+                        return;
+                    }
+                };
+
+                // Call the C# callback
+                let handled = callback(
+                    std::ptr::null_mut(), // window handle - not available here
+                    uri_cstring.as_ptr(),
+                    &mut out_data as *mut *const u8 as *mut *const u8,
+                    &mut out_len,
+                    &mut out_mime_type as *mut *const std::ffi::c_char as *mut *const std::ffi::c_char,
+                    user_data,
+                );
+
+                if !handled || out_data.is_null() {
+                    log::debug!("Protocol handler returned not handled for: {}", uri);
+                    responder.respond(
+                        Response::builder()
+                            .status(StatusCode::NOT_FOUND)
+                            .body(Cow::Borrowed(&[] as &[u8]))
+                            .unwrap(),
+                    );
+                    return;
+                }
+
+                // Copy data from C# allocated memory
+                let body = unsafe { std::slice::from_raw_parts(out_data, out_len).to_vec() };
+
+                // Get MIME type
+                let mime_type = if !out_mime_type.is_null() {
+                    unsafe { CStr::from_ptr(out_mime_type).to_string_lossy().into_owned() }
+                } else {
+                    "application/octet-stream".to_string()
+                };
+
+                log::info!("Protocol response: {} bytes, mime: {}", body.len(), mime_type);
+
+                responder.respond(
+                    Response::builder()
+                        .status(StatusCode::OK)
+                        .header("Content-Type", mime_type)
+                        .body(Cow::Owned(body))
+                        .unwrap(),
+                );
+            },
+        );
+    }
 
     // Set URL or HTML
     let url = unsafe { c_str_to_string(params.url) };
@@ -177,7 +270,7 @@ fn create_webview_for_window(
     let user_agent = unsafe { c_str_to_string(params.user_agent) };
 
     if let Some(url) = url {
-        log::debug!("Setting webview URL: {}", url);
+        log::info!("Setting webview URL: {}", url);
         builder = builder.with_url(&url);
     } else if let Some(html) = html {
         log::debug!("Setting webview HTML content");

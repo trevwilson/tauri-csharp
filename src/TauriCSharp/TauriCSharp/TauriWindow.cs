@@ -1536,6 +1536,14 @@ public partial class TauriWindow
         if (path.Contains("http://") || path.Contains("https://"))
             return Load(new Uri(path));
 
+        // Handle custom scheme URLs (e.g., app://localhost/...)
+        if (Uri.TryCreate(path, UriKind.Absolute, out var customUri) &&
+            !string.IsNullOrEmpty(customUri.Scheme) &&
+            customUri.Scheme != "file")
+        {
+            return Load(customUri);
+        }
+
         // Open a file resource string path
         string absolutePath = Path.GetFullPath(path);
 

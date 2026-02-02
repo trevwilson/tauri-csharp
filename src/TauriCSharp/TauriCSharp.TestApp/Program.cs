@@ -41,7 +41,7 @@ class Program
             .SetMinSize(640, 480)
             .SetDevToolsEnabled(true)
             .SetLogVerbosity(2)
-            .Load("wwwroot/index.html")
+            .Load("app://localhost/index.html")
 
             // Register event handlers
             .RegisterWindowCreatingHandler(OnWindowCreating)
@@ -251,12 +251,68 @@ class Program
 
     static Stream? OnCustomScheme(object sender, string scheme, string url, out string contentType)
     {
-        Log($"EVENT: CustomScheme - {scheme}://{url}");
+        Log($"EVENT: CustomScheme - {scheme} - {url}");
         RecordTest("Custom scheme handler called", true);
 
-        contentType = "application/json";
-        var json = $"{{\"scheme\":\"{scheme}\",\"url\":\"{url}\",\"time\":\"{DateTime.Now}\"}}";
-        return new MemoryStream(Encoding.UTF8.GetBytes(json));
+        // Parse the URL to get the file path
+        // URL format: app://localhost/path/to/file
+        contentType = "text/plain";
+
+        try
+        {
+            // Extract path from URL (after scheme://host/)
+            var uri = new Uri(url);
+            var filePath = uri.AbsolutePath.TrimStart('/');
+
+            if (string.IsNullOrEmpty(filePath) || filePath == "/")
+            {
+                filePath = "index.html";
+            }
+
+            // Resolve relative to wwwroot
+            var wwwroot = Path.Combine(AppContext.BaseDirectory, "wwwroot");
+            var fullPath = Path.Combine(wwwroot, filePath);
+
+            Log($"  Serving file: {fullPath}");
+
+            if (!File.Exists(fullPath))
+            {
+                Log($"  File not found: {fullPath}");
+                contentType = "text/plain";
+                return new MemoryStream(Encoding.UTF8.GetBytes($"404 Not Found: {filePath}"));
+            }
+
+            // Determine content type based on extension
+            contentType = Path.GetExtension(filePath).ToLower() switch
+            {
+                ".html" => "text/html",
+                ".htm" => "text/html",
+                ".css" => "text/css",
+                ".js" => "application/javascript",
+                ".json" => "application/json",
+                ".png" => "image/png",
+                ".jpg" or ".jpeg" => "image/jpeg",
+                ".gif" => "image/gif",
+                ".svg" => "image/svg+xml",
+                ".ico" => "image/x-icon",
+                ".woff" => "font/woff",
+                ".woff2" => "font/woff2",
+                ".ttf" => "font/ttf",
+                _ => "application/octet-stream"
+            };
+
+            Log($"  Content-Type: {contentType}");
+
+            // Read and return file contents
+            var fileBytes = File.ReadAllBytes(fullPath);
+            return new MemoryStream(fileBytes);
+        }
+        catch (Exception ex)
+        {
+            Log($"  Error serving file: {ex.Message}");
+            contentType = "text/plain";
+            return new MemoryStream(Encoding.UTF8.GetBytes($"500 Internal Error: {ex.Message}"));
+        }
     }
 
     // ========================================================================
