@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net8.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\TauriCSharp\TauriCSharp.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="wwwroot\**\*">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
+	<!-- Copy wry-ffi native library to output -->
+	<Target Name="CopyWryFfi" AfterTargets="Build">
+		<PropertyGroup>
+			<WryFfiSource Condition="$([MSBuild]::IsOSPlatform('Linux'))">$(MSBuildThisFileDirectory)..\..\wry-ffi\target\release\libwry_ffi.so</WryFfiSource>
+			<WryFfiSource Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(MSBuildThisFileDirectory)..\..\wry-ffi\target\release\libwry_ffi.dylib</WryFfiSource>
+			<WryFfiSource Condition="$([MSBuild]::IsOSPlatform('Windows'))">$(MSBuildThisFileDirectory)..\..\wry-ffi\target\release\wry_ffi.dll</WryFfiSource>
+		</PropertyGroup>
+		<Copy SourceFiles="$(WryFfiSource)" DestinationFolder="$(TargetDir)" Condition="Exists('$(WryFfiSource)')" />
+		<Warning Text="wry-ffi native library not found at $(WryFfiSource). Run 'cargo build --release' in src/wry-ffi first." Condition="!Exists('$(WryFfiSource)')" />
+	</Target>
+
+</Project>
