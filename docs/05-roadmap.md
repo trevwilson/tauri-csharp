@@ -1,6 +1,6 @@
 # tauri-csharp Roadmap
 
-## Phase 1: Foundation (Weeks 1-2)
+## Phase 1: Foundation ✅ COMPLETE
 
 ### Goals
 - Fork Photino.NET, establish project structure
@@ -9,19 +9,19 @@
 
 ### Tasks
 
-- [ ] **1.1 Project Setup**
-  - [ ] Fork Photino.NET repository
-  - [ ] Rename namespaces: `Photino.NET` → `TauriCSharp`
-  - [ ] Rename classes: `PhotinoWindow` → `TauriWindow`
-  - [ ] Update project files, package metadata
+- [x] **1.1 Project Setup**
+  - [x] Fork Photino.NET repository
+  - [x] Rename namespaces: `Photino.NET` → `TauriCSharp`
+  - [x] Rename classes: `PhotinoWindow` → `TauriWindow`
+  - [x] Update project files, package metadata
   - [ ] Set up CI/CD (GitHub Actions)
-  - [ ] Create NOTICE file with Photino attribution
+  - [x] Create NOTICE file with Photino attribution
 
-- [ ] **1.2 Quick Wins**
-  - [ ] Remove 16 custom scheme limit
-  - [ ] Add structured IPC messages (JSON serialization)
-  - [ ] Improve error handling (TauriException)
-  - [ ] Add request/response correlation for IPC
+- [x] **1.2 Quick Wins**
+  - [x] Remove 16 custom scheme limit (wry-ffi has no limit)
+  - [x] Add structured IPC messages (JSON serialization via TauriIpc)
+  - [x] Improve error handling (TauriException hierarchy)
+  - [x] Add request/response correlation for IPC
 
 - [ ] **1.3 Documentation**
   - [ ] Migration guide from Photino
@@ -33,7 +33,7 @@ Working NuGet package that's API-compatible with Photino but renamed and with im
 
 ---
 
-## Phase 2: Wry FFI Layer (Weeks 3-5)
+## Phase 2: Wry FFI Layer ✅ COMPLETE
 
 ### Goals
 - Create Rust FFI crate exposing Wry/Tao
@@ -42,23 +42,24 @@ Working NuGet package that's API-compatible with Photino but renamed and with im
 
 ### Tasks
 
-- [ ] **2.1 Rust Crate Setup**
-  - [ ] Create `wry-ffi` crate
-  - [ ] Add Wry and Tao dependencies
-  - [ ] Configure cdylib output
+- [x] **2.1 Rust Crate Setup**
+  - [x] Create `wry-ffi` crate
+  - [x] Add Wry and Tao dependencies (vendored)
+  - [x] Configure cdylib output
   - [ ] Set up cross-compilation (cross-rs or manual)
 
-- [ ] **2.2 Core FFI Implementation**
-  - [ ] App lifecycle (create, run, quit, destroy)
-  - [ ] Window management (create, destroy, show/hide, resize, move)
-  - [ ] Webview operations (navigate, load_html, evaluate_script)
-  - [ ] IPC (send_message, receive callback)
-  - [ ] Custom protocol registration
+- [x] **2.2 Core FFI Implementation**
+  - [x] App lifecycle (create, run, quit, destroy)
+  - [x] Window management (create, destroy, show/hide, resize, move, focus)
+  - [x] Webview operations (navigate, load_html, evaluate_script, send_message)
+  - [x] IPC (message callback)
+  - [x] Custom protocol registration
+  - [x] Window callbacks (closing, resized, moved, focus, navigation)
 
-- [ ] **2.3 JavaScript Bridge**
-  - [ ] Implement `window.tauri.invoke()` pattern
-  - [ ] Request/response correlation
-  - [ ] Event emission from backend
+- [x] **2.3 JavaScript Bridge**
+  - [x] Implement `window.tauri.invoke()` pattern
+  - [x] Request/response correlation
+  - [x] Event emission from backend
 
 - [ ] **2.4 Build Pipeline**
   - [ ] GitHub Actions for Windows x64
@@ -71,7 +72,7 @@ Working NuGet package that's API-compatible with Photino but renamed and with im
 
 ---
 
-## Phase 3: Native Layer Swap (Weeks 6-7)
+## Phase 3: Native Layer Swap ✅ COMPLETE
 
 ### Goals
 - Replace Photino.Native with wry-ffi
@@ -80,23 +81,35 @@ Working NuGet package that's API-compatible with Photino but renamed and with im
 
 ### Tasks
 
-- [ ] **3.1 P/Invoke Bindings**
-  - [ ] Create `WryInterop.cs` with LibraryImport declarations
-  - [ ] Implement struct marshaling
-  - [ ] Implement callback marshaling
+- [x] **3.1 P/Invoke Bindings**
+  - [x] Create `WryInterop.cs` with LibraryImport declarations (40 functions)
+  - [x] Implement struct marshaling (WryWindowParams, WrySize, WryPosition, WryResult)
+  - [x] Implement callback marshaling (WryDelegates.cs)
+  - [x] WryCallbackRegistry for GCHandle pinning (prevents delegate GC)
+  - [x] WryNativeString for proper string cleanup (wry_string_free)
   - [ ] Native library resolver for multi-platform
 
-- [ ] **3.2 TauriWindow Refactor**
-  - [ ] Replace Photino P/Invoke calls with Wry calls
-  - [ ] Adapt for any API differences
-  - [ ] Handle callback registration and prevent GC
+- [x] **3.2 TauriWindow Refactor**
+  - [x] Replace all Photino P/Invoke calls with Wry calls
+  - [x] SafeHandle wrappers (WryAppHandle, WryWindowHandle)
+  - [x] Handle callback registration and prevent GC
+  - [x] IDisposable implementation with proper cleanup
 
-- [ ] **3.3 Testing**
+- [x] **3.3 New API Surface**
+  - [x] ExecuteScript/ExecuteScriptAsync - run JavaScript
+  - [x] OpenDevTools/CloseDevTools - runtime devtools control
+  - [x] Show/Hide/IsVisible - window visibility
+  - [x] Focus - bring window to front
+  - [x] Restore - restore from maximized/minimized
+  - [x] CurrentUrl property - get webview URL
+  - [x] NavigationStarting event - can cancel navigation
+
+- [ ] **3.4 Testing**
   - [ ] Unit tests for P/Invoke bindings
   - [ ] Integration tests on each platform
   - [ ] Manual smoke tests
 
-- [ ] **3.4 NuGet Package**
+- [ ] **3.5 NuGet Package**
   - [ ] Include native binaries for all platforms
   - [ ] Runtime identifier selection
   - [ ] Transitive dependency management
@@ -106,46 +119,74 @@ Working NuGet package that's API-compatible with Photino but renamed and with im
 
 ---
 
-## Phase 4: Extended Features (Weeks 8-12)
+## Phase 4: Extended Features (Weeks 8-12) 🔄 IN PROGRESS
 
 ### Goals
-- Add features Photino lacked
-- Improve developer experience
-- Build plugin system
+- Add features Photino lacked via additional Rust crates
+- Expose Tao's built-in features
+- Achieve feature parity with Velox
+
+### Reference
+Velox (Swift Tauri port) uses these crates beyond wry/tao:
+- `rfd` - Rusty File Dialogs
+- `tray-icon` - System tray
+- `muda` - Native menus
 
 ### Tasks
 
-- [ ] **4.1 System Tray**
-  - [ ] Add Tao system tray to wry-ffi
-  - [ ] C# API for tray creation and management
-  - [ ] Menu building API
+- [ ] **4.1 File Dialogs (rfd crate)**
+  - [ ] Add `rfd` dependency to wry-ffi Cargo.toml
+  - [ ] Implement FFI: `wry_dialog_open_file`, `wry_dialog_save_file`, `wry_dialog_open_folder`
+  - [ ] Implement FFI: `wry_dialog_message` (message boxes)
+  - [ ] C# P/Invoke bindings in WryInterop.cs
+  - [ ] TauriWindow methods: ShowOpenFile, ShowSaveFile, ShowOpenFolder, ShowMessage
 
-- [ ] **4.2 Native Menus**
+- [ ] **4.2 System Tray (tray-icon crate)**
+  - [ ] Add `tray-icon` dependency to wry-ffi
+  - [ ] Implement FFI: `wry_tray_create`, `wry_tray_destroy`, `wry_tray_set_icon`, `wry_tray_set_tooltip`
+  - [ ] Implement tray click/menu callbacks
+  - [ ] C# P/Invoke bindings
+  - [ ] TauriTray class with C# API
+
+- [ ] **4.3 Native Menus (muda crate)**
+  - [ ] Add `muda` dependency to wry-ffi
+  - [ ] Implement FFI: menu creation, items, submenus, separators
+  - [ ] Implement menu action callbacks
+  - [ ] C# P/Invoke bindings
+  - [ ] TauriMenu builder API
   - [ ] Window menu bar support
-  - [ ] Context menus
-  - [ ] Keyboard shortcuts
+  - [ ] Context menu support
 
-- [ ] **4.3 Global Shortcuts**
-  - [ ] Register system-wide hotkeys
-  - [ ] Callback when hotkey triggered
+- [ ] **4.4 Monitor/Display Info (tao built-in)**
+  - [ ] Implement FFI: `wry_get_monitors`, `wry_get_primary_monitor`
+  - [ ] Implement FFI: `wry_window_get_scale_factor` (DPI)
+  - [ ] C# P/Invoke bindings
+  - [ ] TauriWindow.GetMonitors(), ScreenDpi property
 
-- [ ] **4.4 Plugin System**
-  - [ ] Define `ITauriPlugin` interface
-  - [ ] Plugin registration in TauriApp
-  - [ ] Command routing to plugins
-  - [ ] Built-in plugins:
-    - [ ] DialogPlugin (file open/save)
-    - [ ] NotificationPlugin
-    - [ ] ShellPlugin (open URLs, run commands)
-    - [ ] ClipboardPlugin
+- [ ] **4.5 Window Icon (tao built-in)**
+  - [ ] Implement FFI: `wry_window_set_icon_file`, `wry_window_set_icon_rgba`
+  - [ ] C# P/Invoke bindings
+  - [ ] TauriWindow.SetIcon() method
 
-- [ ] **4.5 Multi-Window**
+- [ ] **4.6 Notifications**
+  - [ ] Evaluate: `notify-rust` crate or platform-native
+  - [ ] Implement FFI: `wry_notification_show`
+  - [ ] C# P/Invoke bindings
+  - [ ] TauriWindow.SendNotification() (fix current stub)
+
+- [ ] **4.7 Global Shortcuts (tao built-in)**
+  - [ ] Implement FFI: `wry_register_global_shortcut`, `wry_unregister_global_shortcut`
+  - [ ] Implement shortcut triggered callback
+  - [ ] C# P/Invoke bindings
+  - [ ] TauriApp.RegisterGlobalShortcut()
+
+- [ ] **4.8 Multi-Window**
   - [ ] TauriApp managing multiple windows
   - [ ] Window relationships (parent, modal)
   - [ ] Cross-window communication
 
 ### Deliverable
-Feature-rich desktop framework competitive with Tauri (minus mobile).
+Feature-rich desktop framework competitive with Tauri and Velox (minus mobile).
 
 ---
 
@@ -215,12 +256,25 @@ Cross-platform framework: Windows, macOS, Linux, iOS, Android.
 
 ## Dependencies
 
-| Dependency | Version | License |
-|------------|---------|---------|
-| Wry | Latest | Apache 2.0 |
-| Tao | Latest | Apache 2.0 |
-| .NET | 8.0+ | MIT |
-| Rust | 1.70+ | MIT/Apache 2.0 |
+### Current (Phase 1-3)
+
+| Dependency | Version | License | Purpose |
+|------------|---------|---------|---------|
+| Wry | 0.50+ | Apache 2.0 | WebView abstraction |
+| Tao | 0.33+ | Apache 2.0 | Windowing, event loop |
+| .NET | 8.0+ | MIT | Runtime |
+| Rust | 1.70+ | MIT/Apache 2.0 | Build toolchain |
+
+### Phase 4 Additions
+
+| Dependency | Version | License | Purpose |
+|------------|---------|---------|---------|
+| rfd | 0.14+ | MIT | File dialogs (open/save/folder/message) |
+| tray-icon | 0.21+ | Apache 2.0 | System tray |
+| muda | 0.17+ | Apache 2.0 | Native menus |
+| notify-rust | TBD | MIT/Apache 2.0 | System notifications (optional) |
+
+Reference: [Velox runtime-wry-ffi](https://github.com/velox-apps/velox) uses same crate stack.
 
 ---
 

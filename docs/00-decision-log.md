@@ -114,10 +114,11 @@ Both Photino and Wry/Tao use Apache 2.0. Requirements:
 
 ## Comparable Projects
 
-**Velox** (https://github.com/ArysSilva/ArysSilva-.NET-WebView-Tutorial-apps): Swift port of Tauri architecture
+**Velox** (https://github.com/velox-apps/velox): Swift port of Tauri architecture
 - Proves the Wry FFI pattern works for non-Rust languages
-- Uses same Wry/Tao foundation
-- Good reference for FFI surface design
+- Uses same Wry/Tao foundation plus: `rfd`, `tray-icon`, `muda`
+- Good reference for FFI surface design and crate selection
+- Created by Miguel de Icaza
 
 ## Date
 
