@@ -1543,7 +1543,7 @@ public partial class TauriWindow
         // the app context base directory. Check there too.
         if (File.Exists(absolutePath) == false)
         {
-            absolutePath = $"{System.AppContext.BaseDirectory}/{path}";
+            absolutePath = Path.Combine(AppContext.BaseDirectory, path);
 
             if (File.Exists(absolutePath) == false)
             {
