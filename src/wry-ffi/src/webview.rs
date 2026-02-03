@@ -15,6 +15,11 @@ use wry::http::{
 };
 use wry::{Rect, WebViewBuilder};
 
+#[cfg(target_os = "linux")]
+use tao::platform::unix::WindowExtUnix;
+#[cfg(target_os = "linux")]
+use wry::WebViewBuilderExtUnix;
+
 use crate::helpers::*;
 use crate::types::*;
 
@@ -269,15 +274,44 @@ pub extern "C" fn wry_webview_build(
                 size: LogicalSize::new(cfg.width, cfg.height).into(),
             };
             builder = builder.with_bounds(bounds);
-            builder
-                .build_as_child(w)
-                .ok()
-                .map(|webview| Box::into_raw(Box::new(WryWebviewHandle { webview })))
+
+            #[cfg(target_os = "linux")]
+            {
+                // On Linux, use GTK vbox for child webviews too
+                match w.default_vbox() {
+                    Some(vbox) => builder
+                        .build_gtk(vbox)
+                        .ok()
+                        .map(|webview| Box::into_raw(Box::new(WryWebviewHandle { webview }))),
+                    None => None,
+                }
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                builder
+                    .build_as_child(w)
+                    .ok()
+                    .map(|webview| Box::into_raw(Box::new(WryWebviewHandle { webview })))
+            }
         } else {
-            builder
-                .build(w)
-                .ok()
-                .map(|webview| Box::into_raw(Box::new(WryWebviewHandle { webview })))
+            #[cfg(target_os = "linux")]
+            {
+                // On Linux, must use GTK vbox for proper WebKitGTK integration
+                match w.default_vbox() {
+                    Some(vbox) => builder
+                        .build_gtk(vbox)
+                        .ok()
+                        .map(|webview| Box::into_raw(Box::new(WryWebviewHandle { webview }))),
+                    None => None,
+                }
+            }
+            #[cfg(not(target_os = "linux"))]
+            {
+                builder
+                    .build(w)
+                    .ok()
+                    .map(|webview| Box::into_raw(Box::new(WryWebviewHandle { webview })))
+            }
         }
     })
     .flatten()
