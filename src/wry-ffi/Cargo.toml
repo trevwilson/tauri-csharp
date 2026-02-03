@@ -43,7 +43,7 @@ gtk = "0.18"
 [target.'cfg(target_os = "linux")'.dependencies.tao]
 path = "../../vendor/tao"
 default-features = false
-features = ["x11"]
+features = ["x11", "rwh_06"]
 
 [target.'cfg(target_os = "linux")'.dependencies.wry]
 path = "../../vendor/wry"

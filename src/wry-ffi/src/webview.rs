@@ -66,6 +66,28 @@ pub extern "C" fn wry_webview_build(
 
         builder = builder.with_devtools(cfg.devtools);
 
+        // Set up IPC handler if provided
+        if let Some(ipc_handler) = cfg.ipc_handler {
+            let user_data = cfg.ipc_user_data;
+            builder = builder.with_ipc_handler(move |request| {
+                let url_str = request.uri().to_string();
+                let body_str = request.body();
+
+                let url_cstring = match CString::new(url_str) {
+                    Ok(s) => s,
+                    Err(_) => return,
+                };
+                let body_cstring = match CString::new(body_str.as_str()) {
+                    Ok(s) => s,
+                    Err(_) => return,
+                };
+
+                unsafe {
+                    ipc_handler(url_cstring.as_ptr(), body_cstring.as_ptr(), user_data);
+                }
+            });
+        }
+
         for (scheme, handler, user_data) in ffi_protocols.iter().cloned() {
             builder = builder.with_asynchronous_custom_protocol(
                 scheme.clone(),

@@ -133,6 +133,15 @@ pub struct WryWindowConfig {
     pub title: *const c_char,
 }
 
+/// Callback for IPC messages from JavaScript
+pub type WryIpcHandler = Option<
+    unsafe extern "C" fn(
+        url: *const c_char,
+        message: *const c_char,
+        user_data: *mut c_void,
+    ),
+>;
+
 #[repr(C)]
 #[derive(Clone, Copy, Debug)]
 pub struct WryWebviewConfig {
@@ -149,6 +158,10 @@ pub struct WryWebviewConfig {
     pub width: f64,
     /// Height for child webview (logical pixels)
     pub height: f64,
+    /// IPC handler callback
+    pub ipc_handler: WryIpcHandler,
+    /// User data for IPC handler
+    pub ipc_user_data: *mut c_void,
 }
 
 impl Default for WryWebviewConfig {
@@ -165,6 +178,8 @@ impl Default for WryWebviewConfig {
             y: 0.0,
             width: 0.0,
             height: 0.0,
+            ipc_handler: None,
+            ipc_user_data: ptr::null_mut(),
         }
     }
 }

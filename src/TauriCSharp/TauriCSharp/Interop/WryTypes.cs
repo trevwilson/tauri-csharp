@@ -164,6 +164,12 @@ internal struct WryWindowConfig
 }
 
 /// <summary>
+/// IPC message handler callback (called when JavaScript calls window.ipc.postMessage)
+/// </summary>
+[UnmanagedFunctionPointer(CallingConvention.Cdecl)]
+internal delegate void WryIpcHandler(IntPtr url, IntPtr message, IntPtr userData);
+
+/// <summary>
 /// Webview creation config matching Rust WryWebviewConfig.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
@@ -179,6 +185,8 @@ internal struct WryWebviewConfig
     public double Y;
     public double Width;
     public double Height;
+    public IntPtr IpcHandler;    // WryIpcHandler function pointer
+    public IntPtr IpcUserData;   // *mut c_void
 
     public static WryWebviewConfig CreateDefault() => new()
     {
@@ -190,6 +198,8 @@ internal struct WryWebviewConfig
         Y = 0,
         Width = 0,
         Height = 0,
+        IpcHandler = IntPtr.Zero,
+        IpcUserData = IntPtr.Zero,
     };
 }
 

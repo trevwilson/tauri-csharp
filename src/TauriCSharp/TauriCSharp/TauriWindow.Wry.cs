@@ -43,6 +43,11 @@ public partial class TauriWindow : IDisposable
     private ProtocolHandlerState? _protocolState;
 
     /// <summary>
+    /// IPC handler state - stored for the lifetime of the window.
+    /// </summary>
+    private IpcHandlerState? _ipcState;
+
+    /// <summary>
     /// Callback registry for pinning delegates to prevent GC collection.
     /// </summary>
     private static readonly WryCallbackRegistry _callbackRegistry = new();
@@ -82,6 +87,21 @@ public partial class TauriWindow : IDisposable
             if (CallbackHandle.IsAllocated) CallbackHandle.Free();
             if (SchemePtr != IntPtr.Zero) Marshal.FreeCoTaskMem(SchemePtr);
             if (DefinitionsHandle.IsAllocated) DefinitionsHandle.Free();
+        }
+    }
+
+    // ========================================================================
+    // IPC Handler State
+    // ========================================================================
+
+    private sealed class IpcHandlerState
+    {
+        public required WryIpcHandler NativeCallback;
+        public required GCHandle CallbackHandle;
+
+        public void Free()
+        {
+            if (CallbackHandle.IsAllocated) CallbackHandle.Free();
         }
     }
 
@@ -148,6 +168,7 @@ public partial class TauriWindow : IDisposable
             WryInterop.WindowFree(_wryWindow);
             _wryWindow = IntPtr.Zero;
             _protocolState?.Free();
+            _ipcState?.Free();
             throw new TauriInitializationException("Failed to create webview");
         }
 
@@ -209,7 +230,46 @@ public partial class TauriWindow : IDisposable
             BuildProtocolConfig(ref config);
         }
 
+        // Build IPC handler
+        BuildIpcConfig(ref config);
+
         return config;
+    }
+
+    /// <summary>
+    /// Builds the IPC handler configuration.
+    /// </summary>
+    private void BuildIpcConfig(ref WryWebviewConfig config)
+    {
+        // Create the native IPC callback
+        WryIpcHandler nativeCallback = HandleIpcMessage;
+
+        // Pin the callback to prevent GC
+        var callbackHandle = GCHandle.Alloc(nativeCallback);
+        var callbackPtr = Marshal.GetFunctionPointerForDelegate(nativeCallback);
+
+        // Store state for cleanup
+        _ipcState = new IpcHandlerState
+        {
+            NativeCallback = nativeCallback,
+            CallbackHandle = callbackHandle,
+        };
+
+        // Set in config
+        config.IpcHandler = callbackPtr;
+        config.IpcUserData = IntPtr.Zero;
+    }
+
+    /// <summary>
+    /// Handles an IPC message from the webview.
+    /// </summary>
+    private void HandleIpcMessage(IntPtr urlPtr, IntPtr messagePtr, IntPtr userData)
+    {
+        var message = messagePtr != IntPtr.Zero ? Marshal.PtrToStringUTF8(messagePtr) : null;
+        if (!string.IsNullOrEmpty(message))
+        {
+            OnWebMessageReceived(message);
+        }
     }
 
     /// <summary>
@@ -534,6 +594,10 @@ public partial class TauriWindow : IDisposable
             // Free protocol state
             _protocolState?.Free();
             _protocolState = null;
+
+            // Free IPC state
+            _ipcState?.Free();
+            _ipcState = null;
         }
 
         // Unmanaged cleanup
