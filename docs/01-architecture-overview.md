@@ -157,6 +157,16 @@ internal static partial void wry_window_set_title(IntPtr window, string title);
 | iOS | WKWebView | Phase 4 |
 | Android | Android WebView | Phase 4 |
 
+### Linux-Specific Notes
+
+On Linux, wry uses WebKitGTK which requires GTK widget tree integration:
+
+- Window created by Tao contains a GTK VBox container
+- Webview must be built with `WebViewBuilderExtUnix::build_gtk(vbox)`
+- Without this, the webview exists but doesn't render (blank white box)
+
+This is handled internally by wry-ffi - consumers don't need to worry about it.
+
 ## Build Artifacts
 
 ```

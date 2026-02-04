@@ -2,9 +2,15 @@
 
 C FFI bindings for the Wry WebView library, designed for P/Invoke from .NET.
 
+Based on [Velox's runtime-wry-ffi](https://github.com/nicholasgrose/velox) with adaptations for TauriCSharp.
+
 ## Building
 
 ```bash
+# From repo root
+./scripts/build-wry-ffi.sh
+
+# Or manually
 cd src/wry-ffi
 cargo build --release
 ```
@@ -31,84 +37,124 @@ sudo pacman -S webkit2gtk-4.1
 
 ## API Overview
 
-### Lifecycle
+### Event Loop
 
 ```c
-WryApp wry_app_create();           // Create application
-WryResult wry_app_run(WryApp);     // Run event loop (blocks)
-void wry_app_quit(WryApp);         // Request quit
-void wry_app_destroy(WryApp);      // Free resources
+// Create event loop (must be on main thread)
+WryEventLoopHandle wry_event_loop_new();
+
+// Create proxy for cross-thread communication
+WryEventLoopProxyHandle wry_event_loop_create_proxy(WryEventLoopHandle);
+
+// Pump events with callback (non-blocking iteration)
+void wry_event_loop_pump(WryEventLoopHandle, callback, user_data);
+
+// Free resources
+void wry_event_loop_free(WryEventLoopHandle);
+void wry_event_loop_proxy_free(WryEventLoopProxyHandle);
 ```
 
 ### Window Management
 
 ```c
-WryWindow wry_window_create(WryApp, WryWindowParams*);
-void wry_window_destroy(WryWindow);
-void wry_window_set_visible(WryWindow, bool);
-void wry_window_set_title(WryWindow, char*);
-void wry_window_set_size(WryWindow, WrySize);
-// ... and more
+// Create window from config struct
+WryWindowHandle wry_window_build(WryEventLoopHandle, WryWindowConfig*);
+
+// Window properties
+void wry_window_set_title(WryWindowHandle, char*);
+void wry_window_set_visible(WryWindowHandle, bool);
+void wry_window_set_size(WryWindowHandle, uint32_t width, uint32_t height);
+void wry_window_set_position(WryWindowHandle, int32_t x, int32_t y);
+void wry_window_set_minimized(WryWindowHandle, bool);
+void wry_window_set_maximized(WryWindowHandle, bool);
+
+// Cleanup
+void wry_window_free(WryWindowHandle);
 ```
 
 ### Webview Operations
 
 ```c
-WryResult wry_webview_navigate(WryWindow, char* url);
-WryResult wry_webview_load_html(WryWindow, char* html);
-WryResult wry_webview_evaluate_script(WryWindow, char* js);
-WryResult wry_webview_send_message(WryWindow, char* msg);  // Thread-safe
+// Build webview attached to window
+WryWebviewHandle wry_webview_build(WryWindowHandle, WryWebviewConfig*);
+
+// Navigation
+bool wry_webview_navigate(WryWebviewHandle, char* url);
+bool wry_webview_load_html(WryWebviewHandle, char* html);
+
+// JavaScript
+bool wry_webview_evaluate_script(WryWebviewHandle, char* js);
+
+// DevTools
+void wry_webview_open_devtools(WryWebviewHandle);
+void wry_webview_close_devtools(WryWebviewHandle);
+
+// Cleanup
+void wry_webview_free(WryWebviewHandle);
 ```
 
-### Callbacks
+### Dialogs
 
 ```c
-void wry_window_set_message_callback(WryWindow, callback, user_data);
-void wry_window_set_closing_callback(WryWindow, callback, user_data);
-void wry_window_set_resized_callback(WryWindow, callback, user_data);
-// ... and more
+// File dialogs (via rfd)
+WryDialogSelection wry_dialog_open(WryDialogOpenOptions*);
+WryDialogSelection wry_dialog_save(WryDialogSaveOptions*);
+void wry_dialog_selection_free(WryDialogSelection);
+
+// Message dialogs (via tinyfiledialogs)
+bool wry_dialog_message(WryMessageDialogOptions*);
+bool wry_dialog_confirm(WryConfirmDialogOptions*);
+bool wry_dialog_ask(WryAskDialogOptions*);
+WryPromptDialogResult wry_dialog_prompt(WryPromptDialogOptions*);
 ```
 
-### Thread Dispatch
+### Menus (macOS only)
 
 ```c
-void wry_invoke(WryApp, callback, user_data);       // Async
-void wry_invoke_sync(WryApp, callback, user_data);  // Blocking
+WryMenuBarHandle wry_menu_bar_new();
+WrySubmenuHandle wry_submenu_new(char* title, bool enabled);
+WryMenuItemHandle wry_menu_item_new(char* id, char* title, bool enabled, char* accelerator);
+// ... returns no-op stubs on Linux/Windows
+```
+
+### System Tray (macOS only)
+
+```c
+WryTrayHandle wry_tray_new(WryTrayConfig*);
+void wry_tray_set_title(WryTrayHandle, char* title);
+void wry_tray_set_tooltip(WryTrayHandle, char* tooltip);
+// ... returns no-op stubs on Linux/Windows
 ```
 
 ## JavaScript Bridge
 
-Every webview has a `window.tauri` object injected:
+Webviews have `window.ipc` injected:
 
 ```javascript
-// Send command to backend
-window.tauri.invoke('command', { data: 'payload' })
-  .then(response => console.log(response))
-  .catch(error => console.error(error));
-
-// Listen for events
-const unlisten = window.tauri.listen('event-name', payload => {
-  console.log('Received:', payload);
-});
-
-// Stop listening
-unlisten();
+// Send message to backend
+window.ipc.postMessage("your message here");
 ```
 
-## Testing
+The backend receives messages via the IPC handler callback registered during webview creation.
 
-```bash
-# Build the C test
-cd tests
-gcc -o test_basic test_basic.c -L../target/release -lwry_ffi
+## Platform Notes
 
-# Run (Linux)
-LD_LIBRARY_PATH=../target/release ./test_basic
-```
+### Linux (GTK)
+
+- WebKitGTK must be built into the GTK widget tree
+- Use `wry_webview_build_gtk(vbox)` via `WebViewBuilderExtUnix::build_gtk()`
+- Without proper GTK integration, webview renders as blank white box
+- Tested on WSL2 with WSLg (native Wayland)
+
+### WSL2 Specifics
+
+- Runs on native Wayland via WSLg by default
+- Do NOT set `GDK_BACKEND=x11` - causes cursor invisibility issues
+- Message dialogs use tinyfiledialogs (zenity/kdialog) because rfd's xdg-desktop-portal fails silently
 
 ## Thread Safety
 
-- `wry_app_create`, `wry_app_run` must be called from main thread
+- Event loop must be created/run on main thread
 - Window operations should be called from main thread
-- `wry_webview_send_message` and `wry_invoke` are thread-safe
+- `wry_event_loop_proxy_*` functions are thread-safe
 - Callbacks are invoked on the main/UI thread
