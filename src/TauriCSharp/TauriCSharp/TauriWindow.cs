@@ -79,9 +79,9 @@ public partial class TauriWindow
     public static bool IsMacOsPlatform => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
 
     /// <summary>
-    /// Indicates the version of MacOS
+    /// Indicates the version of MacOS. Returns null on non-macOS platforms.
     /// </summary>
-    public static Version MacOsVersion => IsMacOsPlatform ? Version.Parse(RuntimeInformation.OSDescription.Split(' ')[1]) : null;
+    public static Version? MacOsVersion => IsMacOsPlatform ? Version.Parse(RuntimeInformation.OSDescription.Split(' ')[1]) : null;
 
     /// <summary>
     /// Indicates whether the current platform is Linux.
@@ -350,7 +350,7 @@ public partial class TauriWindow
         }
     }
 
-    public string UserAgent
+    public string? UserAgent
     {
         get
         {
@@ -608,7 +608,7 @@ public partial class TauriWindow
         }
     }
 
-    private string _iconFile;
+    private string? _iconFile;
     /// <summary>
     /// Gets or sets the icon file for the native window title bar.
     /// The file must be located on the local machine and cannot be a URL. The default is none.
@@ -620,7 +620,7 @@ public partial class TauriWindow
     /// The file path to the icon.
     /// </value>
     /// <exception cref="System.ArgumentException">Icon file: {value} does not exist.</exception>
-    public string IconFile
+    public string? IconFile
     {
         get => _iconFile;
         set
@@ -841,12 +841,12 @@ public partial class TauriWindow
         }
     }
 
-    private readonly TauriWindow _dotNetParent;
+    private readonly TauriWindow? _dotNetParent;
     /// <summary>
     /// Gets the reference to parent TauriWindow instance.
     /// This property can only be set in the constructor and it is optional.
     /// </summary>
-    public TauriWindow Parent { get { return _dotNetParent; } }
+    public TauriWindow? Parent { get { return _dotNetParent; } }
 
     /// <summary>
     /// Gets or sets whether the native window can be resized by the user.
@@ -1436,7 +1436,7 @@ public partial class TauriWindow
     /// >2 = All Details
     /// Default is 2.
     /// </summary>
-    public int LogVerbosity { get; set; } = 2;
+    public int LogVerbosity { get; set; } = 0;
 
     //CONSTRUCTOR
     /// <summary>
@@ -1447,7 +1447,7 @@ public partial class TauriWindow
     /// If a parent window is specified, this window will be created as a child of the specified parent window.
     /// </remarks>
     /// <param name="parent">The parent TauriWindow. This is optional and defaults to null.</param>
-    public TauriWindow(TauriWindow parent = null)
+    public TauriWindow(TauriWindow? parent = null)
     {
         _dotNetParent = parent;
         _managedThreadId = Environment.CurrentManagedThreadId;
@@ -1650,7 +1650,7 @@ public partial class TauriWindow
         // This behavior seems to have changed with macOS Sonoma.
         // Therefore we determine the version of macOS and only apply the
         // workaround for older versions.
-        if (IsMacOsPlatform && MacOsVersion.Major < 23)
+        if (IsMacOsPlatform && MacOsVersion?.Major < 23)
         {
             var workArea = MainMonitor.WorkArea.Size;
             location.Y = location.Y >= 0
@@ -2630,7 +2630,7 @@ public partial class TauriWindow
     /// <param name="multiSelect">Whether multiple selections are allowed</param>
     /// <param name="filters">Array of <see cref="Extensions"/> for filtering.</param>
     /// <returns>Array of file paths as strings</returns>
-    public string[] ShowOpenFile(string title = "Choose file", string defaultPath = null, bool multiSelect = false, (string Name, string[] Extensions)[] filters = null) => ShowOpenDialog(false, title, defaultPath, multiSelect, filters);
+    public string[] ShowOpenFile(string title = "Choose file", string? defaultPath = null, bool multiSelect = false, (string Name, string[] Extensions)[]? filters = null) => ShowOpenDialog(false, title, defaultPath, multiSelect, filters);
 
     /// <summary>
     /// Async version is required for TauriCSharp.Blazor
@@ -2646,7 +2646,7 @@ public partial class TauriWindow
     /// <param name="multiSelect">Whether multiple selections are allowed</param>
     /// <param name="filters">Array of <see cref="Extensions"/> for filtering.</param>
     /// <returns>Array of file paths as strings</returns>
-    public async Task<string[]> ShowOpenFileAsync(string title = "Choose file", string defaultPath = null, bool multiSelect = false, (string Name, string[] Extensions)[] filters = null)
+    public async Task<string[]> ShowOpenFileAsync(string title = "Choose file", string? defaultPath = null, bool multiSelect = false, (string Name, string[] Extensions)[]? filters = null)
     {
         return await Task.Run(() => ShowOpenFile(title, defaultPath, multiSelect, filters));
     }
@@ -2661,7 +2661,7 @@ public partial class TauriWindow
     /// <param name="defaultPath">Default path. Defaults to <see cref="Environment.SpecialFolder.MyDocuments"/></param>
     /// <param name="multiSelect">Whether multiple selections are allowed</param>
     /// <returns>Array of folder paths as strings</returns>
-    public string[] ShowOpenFolder(string title = "Select folder", string defaultPath = null, bool multiSelect = false) => ShowOpenDialog(true, title, defaultPath, multiSelect, null);
+    public string[] ShowOpenFolder(string title = "Select folder", string? defaultPath = null, bool multiSelect = false) => ShowOpenDialog(true, title, defaultPath, multiSelect, null);
 
     /// <summary>
     /// Async version is required for TauriCSharp.Blazor
@@ -2673,7 +2673,7 @@ public partial class TauriWindow
     /// <param name="defaultPath">Default path. Defaults to <see cref="Environment.SpecialFolder.MyDocuments"/></param>
     /// <param name="multiSelect">Whether multiple selections are allowed</param>
     /// <returns>Array of folder paths as strings</returns>
-    public async Task<string[]> ShowOpenFolderAsync(string title = "Choose file", string defaultPath = null, bool multiSelect = false)
+    public async Task<string[]> ShowOpenFolderAsync(string title = "Choose file", string? defaultPath = null, bool multiSelect = false)
     {
         return await Task.Run(() => ShowOpenFolder(title, defaultPath, multiSelect));
     }
@@ -2691,7 +2691,7 @@ public partial class TauriWindow
     /// <param name="defaultPath">Default path. Defaults to <see cref="Environment.SpecialFolder.MyDocuments"/></param>
     /// <param name="filters">Array of <see cref="Extensions"/> for filtering.</param>
     /// <returns></returns>
-    public string ShowSaveFile(string title = "Save file", string defaultPath = null, (string Name, string[] Extensions)[] filters = null)
+    public string ShowSaveFile(string title = "Save file", string? defaultPath = null, (string Name, string[] Extensions)[]? filters = null)
     {
         throw new NotSupportedException("Save file dialog is not yet supported with the wry-ffi backend. " +
             "This feature will be implemented in a future release.");
@@ -2710,7 +2710,7 @@ public partial class TauriWindow
     /// <param name="defaultPath">Default path. Defaults to <see cref="Environment.SpecialFolder.MyDocuments"/></param>
     /// <param name="filters">Array of <see cref="Extensions"/> for filtering.</param>
     /// <returns></returns>
-    public async Task<string> ShowSaveFileAsync(string title = "Choose file", string defaultPath = null, (string Name, string[] Extensions)[] filters = null)
+    public async Task<string> ShowSaveFileAsync(string title = "Choose file", string? defaultPath = null, (string Name, string[] Extensions)[]? filters = null)
     {
         return await Task.Run(() => ShowSaveFile(title, defaultPath, filters));
     }
@@ -2741,7 +2741,7 @@ public partial class TauriWindow
     /// <param name="multiSelect">Whether multiple selections are allowed</param>
     /// <param name="filters">Array of <see cref="Extensions"/> for filtering.</param>
     /// <returns>Array of paths</returns>
-    private string[] ShowOpenDialog(bool foldersOnly, string title, string defaultPath, bool multiSelect, (string Name, string[] Extensions)[] filters)
+    private string[] ShowOpenDialog(bool foldersOnly, string title, string? defaultPath, bool multiSelect, (string Name, string[] Extensions)[]? filters)
     {
         var dialogType = foldersOnly ? "Open folder" : "Open file";
         throw new NotSupportedException($"{dialogType} dialog is not yet supported with the wry-ffi backend. " +

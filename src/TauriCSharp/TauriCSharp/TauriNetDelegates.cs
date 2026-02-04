@@ -253,7 +253,7 @@ public partial class TauriWindow
     /// </summary>
     internal void OnWindowCreating()
     {
-        WindowCreating?.Invoke(this, null);
+        WindowCreating?.Invoke(this, EventArgs.Empty);
     }
 
     public event EventHandler? WindowCreated;
@@ -276,7 +276,7 @@ public partial class TauriWindow
     /// </summary>
     internal void OnWindowCreated()
     {
-        WindowCreated?.Invoke(this, null);
+        WindowCreated?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -326,7 +326,7 @@ public partial class TauriWindow
     //NOTE: There is 1 callback from C++ to C# which is automatically registered. The .NET callback appropriate for the custom scheme is handled in OnCustomScheme().
 
     public delegate Stream? NetCustomSchemeDelegate(object sender, string scheme, string url, out string contentType);
-    internal Dictionary<string, NetCustomSchemeDelegate> CustomSchemes = new Dictionary<string, NetCustomSchemeDelegate>();
+    internal Dictionary<string, NetCustomSchemeDelegate?> CustomSchemes = new();
 
     /// <summary>
     /// Registers user-defined custom schemes (other than 'http', 'https' and 'file') and handler methods to receive callbacks

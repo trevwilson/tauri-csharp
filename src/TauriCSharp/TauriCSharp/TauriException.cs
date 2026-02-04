@@ -78,7 +78,7 @@ public class TauriIpcException : TauriException
 
     public TauriIpcException(string message) : base(message) { }
 
-    public TauriIpcException(string message, string correlationId) : base(message)
+    public TauriIpcException(string message, string? correlationId) : base(message)
     {
         CorrelationId = correlationId;
     }
