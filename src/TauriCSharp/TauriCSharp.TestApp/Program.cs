@@ -204,6 +204,18 @@ class Program
                 _window.Close();
                 break;
 
+            case "dialog-open":
+                HandleDialogOpen();
+                break;
+
+            case "dialog-save":
+                HandleDialogSave();
+                break;
+
+            case "dialog-confirm":
+                HandleDialogConfirm();
+                break;
+
             default:
                 Log($"Unknown message: {message}");
                 _window.SendWebMessage($"unknown:{message}");
@@ -341,6 +353,64 @@ class Program
         RecordTest("IsVisible = true", _window.IsVisible);
 
         Log("Initial property tests complete.");
+    }
+
+    // ========================================================================
+    // Dialog Handlers
+    // ========================================================================
+
+    static void HandleDialogOpen()
+    {
+        if (_window == null) return;
+
+        Log("Opening file dialog...");
+        var paths = Dialogs.OpenFile(title: "Open File");
+
+        if (paths.Length > 0)
+        {
+            Log($"Selected: {paths[0]}");
+            _window.SendWebMessage($"dialog-result:open:{paths[0]}");
+            RecordTest("Dialog Open", true);
+        }
+        else
+        {
+            Log("Dialog cancelled");
+            _window.SendWebMessage("dialog-result:open:cancelled");
+            RecordTest("Dialog Open (cancelled)", true);
+        }
+    }
+
+    static void HandleDialogSave()
+    {
+        if (_window == null) return;
+
+        Log("Opening save dialog...");
+        var path = Dialogs.SaveFile(title: "Save File", defaultName: "untitled.txt");
+
+        if (path != null)
+        {
+            Log($"Save path: {path}");
+            _window.SendWebMessage($"dialog-result:save:{path}");
+            RecordTest("Dialog Save", true);
+        }
+        else
+        {
+            Log("Dialog cancelled");
+            _window.SendWebMessage("dialog-result:save:cancelled");
+            RecordTest("Dialog Save (cancelled)", true);
+        }
+    }
+
+    static void HandleDialogConfirm()
+    {
+        if (_window == null) return;
+
+        Log("Opening confirm dialog...");
+        var confirmed = Dialogs.Confirm("Confirm", "Do you want to proceed with this action?");
+
+        Log($"Confirmed: {confirmed}");
+        _window.SendWebMessage($"dialog-result:confirm:{confirmed}");
+        RecordTest("Dialog Confirm", true);
     }
 
     // ========================================================================

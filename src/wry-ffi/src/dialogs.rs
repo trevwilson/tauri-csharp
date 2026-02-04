@@ -5,7 +5,7 @@
 use std::ffi::CString;
 use std::os::raw::c_char;
 
-use rfd::{FileDialog, MessageButtons, MessageDialog, MessageDialogResult};
+use rfd::FileDialog;
 
 use crate::helpers::*;
 use crate::types::*;
@@ -112,52 +112,28 @@ pub extern "C" fn wry_dialog_message(options: *const WryMessageDialogOptions) ->
             return false;
         };
 
-        let mut dialog = MessageDialog::new();
-        if let Some(title) = opt_cstring(options.title) {
-            dialog = dialog.set_title(&title);
-        }
+        let title = opt_cstring(options.title).unwrap_or_else(|| "Message".to_string());
         let message = opt_cstring(options.message).unwrap_or_default();
-        dialog = dialog.set_description(&message);
 
-        dialog = dialog.set_level(message_level_from_ffi(options.level));
-
-        let ok_label = opt_cstring(options.ok_label);
-        let cancel_label = opt_cstring(options.cancel_label);
-        let yes_label = opt_cstring(options.yes_label);
-        let no_label = opt_cstring(options.no_label);
-
-        dialog = match options.buttons {
-            WryMessageDialogButtons::Ok => {
-                if let Some(label) = ok_label {
-                    dialog.set_buttons(MessageButtons::OkCustom(label))
-                } else {
-                    dialog.set_buttons(MessageButtons::Ok)
-                }
-            }
-            WryMessageDialogButtons::OkCancel => {
-                if let (Some(ok), Some(cancel)) = (ok_label.clone(), cancel_label.clone()) {
-                    dialog.set_buttons(MessageButtons::OkCancelCustom(ok, cancel))
-                } else {
-                    dialog.set_buttons(MessageButtons::OkCancel)
-                }
-            }
-            WryMessageDialogButtons::YesNo => dialog.set_buttons(MessageButtons::YesNo),
-            WryMessageDialogButtons::YesNoCancel => {
-                if let (Some(yes), Some(no), Some(cancel)) =
-                    (yes_label.clone(), no_label.clone(), cancel_label)
-                {
-                    dialog.set_buttons(MessageButtons::YesNoCancelCustom(yes, no, cancel))
-                } else {
-                    dialog.set_buttons(MessageButtons::YesNoCancel)
-                }
-            }
+        let icon = match options.level {
+            WryMessageDialogLevel::Info => tinyfiledialogs::MessageBoxIcon::Info,
+            WryMessageDialogLevel::Warning => tinyfiledialogs::MessageBoxIcon::Warning,
+            WryMessageDialogLevel::Error => tinyfiledialogs::MessageBoxIcon::Error,
         };
 
-        match dialog.show() {
-            MessageDialogResult::Ok | MessageDialogResult::Yes => true,
-            MessageDialogResult::Cancel
-            | MessageDialogResult::No
-            | MessageDialogResult::Custom(_) => false,
+        match options.buttons {
+            WryMessageDialogButtons::Ok => {
+                tinyfiledialogs::message_box_ok(&title, &message, icon);
+                true
+            }
+            WryMessageDialogButtons::OkCancel => {
+                tinyfiledialogs::message_box_ok_cancel(&title, &message, icon, tinyfiledialogs::OkCancel::Ok)
+                    == tinyfiledialogs::OkCancel::Ok
+            }
+            WryMessageDialogButtons::YesNo | WryMessageDialogButtons::YesNoCancel => {
+                tinyfiledialogs::message_box_yes_no(&title, &message, icon, tinyfiledialogs::YesNo::Yes)
+                    == tinyfiledialogs::YesNo::Yes
+            }
         }
     })
 }
@@ -169,32 +145,17 @@ pub extern "C" fn wry_dialog_confirm(options: *const WryConfirmDialogOptions) ->
             return false;
         };
 
-        let mut dialog = MessageDialog::new();
-        if let Some(title) = opt_cstring(options.title) {
-            dialog = dialog.set_title(&title);
-        }
+        let title = opt_cstring(options.title).unwrap_or_else(|| "Confirm".to_string());
         let message = opt_cstring(options.message).unwrap_or_default();
-        dialog = dialog.set_description(&message);
-        dialog = dialog.set_level(message_level_from_ffi(options.level));
 
-        let ok_label = opt_cstring(options.ok_label);
-        let cancel_label = opt_cstring(options.cancel_label);
-        let positive_label = ok_label.clone();
-
-        dialog = if let (Some(ref ok), Some(ref cancel)) = (&ok_label, &cancel_label) {
-            dialog.set_buttons(MessageButtons::OkCancelCustom(ok.clone(), cancel.clone()))
-        } else {
-            dialog.set_buttons(MessageButtons::OkCancel)
+        let icon = match options.level {
+            WryMessageDialogLevel::Info => tinyfiledialogs::MessageBoxIcon::Info,
+            WryMessageDialogLevel::Warning => tinyfiledialogs::MessageBoxIcon::Warning,
+            WryMessageDialogLevel::Error => tinyfiledialogs::MessageBoxIcon::Error,
         };
 
-        match dialog.show() {
-            MessageDialogResult::Ok => true,
-            MessageDialogResult::Custom(choice) => positive_label
-                .map(|expected| choice == expected)
-                .unwrap_or(false),
-            MessageDialogResult::Yes => true,
-            _ => false,
-        }
+        tinyfiledialogs::message_box_ok_cancel(&title, &message, icon, tinyfiledialogs::OkCancel::Ok)
+            == tinyfiledialogs::OkCancel::Ok
     })
 }
 
@@ -205,32 +166,17 @@ pub extern "C" fn wry_dialog_ask(options: *const WryAskDialogOptions) -> bool {
             return false;
         };
 
-        let mut dialog = MessageDialog::new();
-        if let Some(title) = opt_cstring(options.title) {
-            dialog = dialog.set_title(&title);
-        }
+        let title = opt_cstring(options.title).unwrap_or_else(|| "Question".to_string());
         let message = opt_cstring(options.message).unwrap_or_default();
-        dialog = dialog.set_description(&message);
-        dialog = dialog.set_level(message_level_from_ffi(options.level));
 
-        let yes_label = opt_cstring(options.yes_label);
-        let no_label = opt_cstring(options.no_label);
-        let positive_label = yes_label.clone();
-
-        dialog = if let (Some(ref yes), Some(ref no)) = (&yes_label, &no_label) {
-            dialog.set_buttons(MessageButtons::OkCancelCustom(yes.clone(), no.clone()))
-        } else {
-            dialog.set_buttons(MessageButtons::YesNo)
+        let icon = match options.level {
+            WryMessageDialogLevel::Info => tinyfiledialogs::MessageBoxIcon::Info,
+            WryMessageDialogLevel::Warning => tinyfiledialogs::MessageBoxIcon::Warning,
+            WryMessageDialogLevel::Error => tinyfiledialogs::MessageBoxIcon::Error,
         };
 
-        match dialog.show() {
-            MessageDialogResult::Yes => true,
-            MessageDialogResult::Ok => true,
-            MessageDialogResult::Custom(choice) => positive_label
-                .map(|expected| choice == expected)
-                .unwrap_or(false),
-            _ => false,
-        }
+        tinyfiledialogs::message_box_yes_no(&title, &message, icon, tinyfiledialogs::YesNo::Yes)
+            == tinyfiledialogs::YesNo::Yes
     })
 }
 
