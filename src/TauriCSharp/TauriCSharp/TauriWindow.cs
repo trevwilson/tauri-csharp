@@ -5,6 +5,7 @@
 using System.Drawing;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using TauriCSharp.Handles;
 using TauriCSharp.Interop;
 
@@ -57,6 +58,7 @@ public partial class TauriWindow
     private static IntPtr _nativeType = IntPtr.Zero;
     private IntPtr _nativeInstance;
     private readonly int _managedThreadId;
+    private readonly ILogger? _logger;
 
     //There can only be 1 message loop for all windows.
     private static bool _messageLoopIsStarted = false;
@@ -199,8 +201,8 @@ public partial class TauriWindow
                 if (_startupParameters.CenterOnInitialize != value)
                     _startupParameters.CenterOnInitialize = value;
             }
-            else
-                Log("Warning: Centering window after creation is not supported with wry-ffi backend");
+            else if (_logger != null)
+                TauriLog.CenteringNotSupported(_logger, LogTitle);
         }
     }
 
@@ -263,10 +265,10 @@ public partial class TauriWindow
                 {
                     if (IsWindowsPlatform)
                         throw new ApplicationException("Transparent can only be set on Windows before the native window is instantiated.");
-                    else
+                    else if (_logger != null)
                     {
-                        Log($"Invoking Photino_SetTransparentEnabled({value})");
-                        Log("Warning: Transparent cannot be changed after window creation with wry-ffi backend");
+                        TauriLog.InvokingTransparentEnabled(_logger, LogTitle, value);
+                        TauriLog.TransparentCannotChange(_logger, LogTitle);
                     }
                 }
             }
@@ -294,8 +296,8 @@ public partial class TauriWindow
             {
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.ContextMenuEnabled = value;
-                else
-                    Log("Warning: ContextMenuEnabled cannot be changed after window creation with wry-ffi backend");
+                else if (_logger != null)
+                    TauriLog.ContextMenuCannotChange(_logger, LogTitle);
             }
         }
     }
@@ -321,8 +323,8 @@ public partial class TauriWindow
             {
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.DevToolsEnabled = value;
-                else
-                    Log("Warning: DevToolsEnabled cannot be changed after window creation with wry-ffi backend");
+                else if (_logger != null)
+                    TauriLog.DevToolsCannotChange(_logger, LogTitle);
             }
         }
     }
@@ -638,8 +640,8 @@ public partial class TauriWindow
 
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.WindowIconFile = _iconFile;
-                else
-                    Log("Warning: Icon file not supported in wry-ffi backend");
+                else if (_logger != null)
+                    TauriLog.IconFileNotSupported(_logger, LogTitle);
             }
         }
     }
@@ -729,8 +731,8 @@ public partial class TauriWindow
                     _startupParameters.MaxWidth = value.X;
                     _startupParameters.MaxHeight = value.Y;
                 }
-                else
-                    Log("Warning: SetMaxSize after creation not supported in wry-ffi");
+                else if (_logger != null)
+                    TauriLog.MaxSizeNotSupported(_logger, LogTitle);
             }
         }
     }
@@ -805,8 +807,8 @@ public partial class TauriWindow
                     _startupParameters.MinWidth = value.X;
                     _startupParameters.MinHeight = value.Y;
                 }
-                else
-                    Log("Warning: SetMinSize after creation not supported in wry-ffi");
+                else if (_logger != null)
+                    TauriLog.MinSizeNotSupported(_logger, LogTitle);
             }
         }
     }
@@ -869,8 +871,8 @@ public partial class TauriWindow
             {
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Resizable = value;
-                else
-                    Log("Warning: Resizable cannot be changed after window creation with wry-ffi backend");
+                else if (_logger != null)
+                    TauriLog.ResizableCannotChange(_logger, LogTitle);
             }
         }
     }
@@ -1135,8 +1137,8 @@ public partial class TauriWindow
             {
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Topmost = value;
-                else
-                    Log("Warning: Topmost cannot be changed after window creation with wry-ffi backend");
+                else if (_logger != null)
+                    TauriLog.TopmostCannotChange(_logger, LogTitle);
             }
         }
     }
@@ -1430,13 +1432,17 @@ public partial class TauriWindow
 
     /// <summary>
     /// Gets or sets the logging verbosity to standard output (Console/Terminal).
-    /// 0 = Critical Only
-    /// 1 = Critical and Warning
-    /// 2 = Verbose
-    /// >2 = All Details
-    /// Default is 2.
     /// </summary>
+    /// <remarks>
+    /// This property is obsolete. Use the constructor overload that accepts an ILogger instead.
+    /// </remarks>
+    [Obsolete("Use ILogger instead. Pass an ILogger to the TauriWindow constructor for structured logging.")]
     public int LogVerbosity { get; set; } = 0;
+
+    /// <summary>
+    /// Gets the window title for logging purposes.
+    /// </summary>
+    private string LogTitle => Title ?? "TauriWindow";
 
     //CONSTRUCTOR
     /// <summary>
@@ -1446,9 +1452,11 @@ public partial class TauriWindow
     /// This class represents a native window with a native browser control taking up the entire client area.
     /// If a parent window is specified, this window will be created as a child of the specified parent window.
     /// </remarks>
+    /// <param name="logger">Optional logger for structured logging. If null, logging is disabled.</param>
     /// <param name="parent">The parent TauriWindow. This is optional and defaults to null.</param>
-    public TauriWindow(TauriWindow? parent = null)
+    public TauriWindow(ILogger? logger = null, TauriWindow? parent = null)
     {
+        _logger = logger;
         _dotNetParent = parent;
         _managedThreadId = Environment.CurrentManagedThreadId;
 
@@ -1499,7 +1507,7 @@ public partial class TauriWindow
     /// <param name="uri">A Uri pointing to the file or the URL to load.</param>
     public TauriWindow Load(Uri uri)
     {
-        Log($".Load({uri})");
+        if (_logger != null) TauriLog.Load(_logger, LogTitle, uri.ToString());
         if (_nativeInstance == IntPtr.Zero)
             _startupParameters.StartUrl = uri.ToString();
         else
@@ -1519,7 +1527,7 @@ public partial class TauriWindow
     /// <param name="path">A path pointing to the ressource to load.</param>
     public TauriWindow Load(string path)
     {
-        Log($".Load({path})");
+        if (_logger != null) TauriLog.Load(_logger, LogTitle, path);
 
         // ––––––––––––––––––––––
         // SECURITY RISK!
@@ -1548,7 +1556,7 @@ public partial class TauriWindow
 
             if (File.Exists(absolutePath) == false)
             {
-                Log($" ** File \"{path}\" could not be found.");
+                if (_logger != null) TauriLog.FileNotFound(_logger, LogTitle, path);
                 return this;
             }
         }
@@ -1570,7 +1578,7 @@ public partial class TauriWindow
     public TauriWindow LoadRawString(string content)
     {
         var shortContent = content.Length > 50 ? string.Concat(content.AsSpan(0, 50), "...") : content;
-        Log($".LoadRawString({shortContent})");
+        if (_logger != null) TauriLog.LoadRawString(_logger, LogTitle, shortContent);
         if (_nativeInstance == IntPtr.Zero)
             _startupParameters.StartString = content;
         else
@@ -1590,7 +1598,7 @@ public partial class TauriWindow
     /// <seealso cref="UseOsDefaultLocation" />
     public TauriWindow Center()
     {
-        Log(".Center()");
+        if (_logger != null) TauriLog.Center(_logger, LogTitle);
         Centered = true;
         return this;
     }
@@ -1605,12 +1613,10 @@ public partial class TauriWindow
     /// <param name="allowOutsideWorkArea">Whether the window can go off-screen (work area)</param>
     public TauriWindow MoveTo(Point location, bool allowOutsideWorkArea = false)
     {
-        Log($".MoveTo({location}, {allowOutsideWorkArea})");
-
-        if (LogVerbosity > 2)
+        if (_logger != null)
         {
-            Log($"  Current location: {Location}");
-            Log($"  New location: {location}");
+            TauriLog.MoveTo(_logger, LogTitle, location.ToString(), allowOutsideWorkArea);
+            TauriLog.MoveToDetails(_logger, LogTitle, Location.ToString(), location.ToString());
         }
 
         // If the window is outside of the work area,
@@ -1675,7 +1681,7 @@ public partial class TauriWindow
     /// <param name="allowOutsideWorkArea">Whether the window can go off-screen (work area)</param>
     public TauriWindow MoveTo(int left, int top, bool allowOutsideWorkArea = false)
     {
-        Log($".MoveTo({left}, {top}, {allowOutsideWorkArea})");
+        if (_logger != null) TauriLog.MoveTo(_logger, LogTitle, $"{left}, {top}", allowOutsideWorkArea);
         return MoveTo(new Point(left, top), allowOutsideWorkArea);
     }
 
@@ -1689,7 +1695,7 @@ public partial class TauriWindow
     /// <param name="offset">Relative offset</param>
     public TauriWindow Offset(Point offset)
     {
-        Log($".Offset({offset})");
+        if (_logger != null) TauriLog.Offset(_logger, LogTitle, offset.ToString());
         var location = Location;
         int left = location.X + offset.X;
         int top = location.Y + offset.Y;
@@ -2083,20 +2089,17 @@ public partial class TauriWindow
 
     /// <summary>
     /// Sets the logging verbosity to standard output (Console/Terminal).
-    /// 0 = Critical Only
-    /// 1 = Critical and Warning
-    /// 2 = Verbose
-    /// >2 = All Details
-    /// Default is 2.
     /// </summary>
+    /// <remarks>
+    /// This method is obsolete. Use the constructor overload that accepts an ILogger instead.
+    /// </remarks>
     /// <returns>
     /// Returns the current <see cref="TauriWindow"/> instance.
     /// </returns>
-    /// <param name="verbosity">Verbosity as integer</param>
+    /// <param name="verbosity">Verbosity as integer (ignored)</param>
+    [Obsolete("Use ILogger instead. Pass an ILogger to the TauriWindow constructor for structured logging.")]
     public TauriWindow SetLogVerbosity(int verbosity)
     {
-        Log($".SetLogVerbosity({verbosity})");
-        LogVerbosity = verbosity;
         return this;
     }
 
@@ -2749,13 +2752,15 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Logs a message.
+    /// Logs a debug message. Use typed TauriLog methods for new code.
     /// </summary>
     /// <param name="message">Log message</param>
     private void Log(string message)
     {
-        if (LogVerbosity < 1) return;
-        Console.WriteLine($"TauriCSharp.NET: \"{Title ?? "TauriWindow"}\"{message}");
+        if (_logger != null)
+        {
+            _logger.LogDebug("[{WindowTitle}] {Message}", LogTitle, message);
+        }
     }
 
     /// <summary>

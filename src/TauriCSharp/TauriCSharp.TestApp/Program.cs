@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Text;
+using Microsoft.Extensions.Logging;
 using TauriCSharp;
 
 namespace TauriCSharp.TestApp;
@@ -35,12 +36,19 @@ class Program
     {
         Log("Creating TauriWindow...");
 
-        _window = new TauriWindow()
+        // Create a logger for TauriWindow
+        using var loggerFactory = LoggerFactory.Create(builder =>
+        {
+            builder.AddConsole();
+            builder.SetMinimumLevel(LogLevel.Debug);
+        });
+        var logger = loggerFactory.CreateLogger<TauriWindow>();
+
+        _window = new TauriWindow(logger)
             .SetTitle("TauriCSharp Test App")
             .SetSize(1024, 768)
             .SetMinSize(640, 480)
             .SetDevToolsEnabled(true)
-            .SetLogVerbosity(2)
             .Load("app://localhost/index.html")
 
             // Register event handlers

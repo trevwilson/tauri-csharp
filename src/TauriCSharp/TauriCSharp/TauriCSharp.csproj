@@ -47,8 +47,7 @@
 		3. System library paths
 	-->
 	<ItemGroup>
-		<!-- No external package reference needed - wry_ffi is built locally -->
-		<!-- The NativeLibrary resolver will find libwry_ffi in standard locations -->
+		<PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
 	</ItemGroup>
 
 </Project>

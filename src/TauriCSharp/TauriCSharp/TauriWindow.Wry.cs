@@ -403,7 +403,7 @@ public partial class TauriWindow : IDisposable
         }
         catch (Exception ex)
         {
-            Log($"Protocol handler error: {ex.Message}");
+            if (_logger != null) TauriLog.ProtocolHandlerError(_logger, LogTitle, ex.Message);
             return false;
         }
     }
@@ -460,7 +460,7 @@ public partial class TauriWindow : IDisposable
         }
         catch (Exception ex)
         {
-            Log($"Event handling error: {ex.Message}");
+            if (_logger != null) TauriLog.EventHandlingError(_logger, LogTitle, ex.Message);
         }
 
         return _shouldExit ? WryEventLoopControlFlow.Exit : WryEventLoopControlFlow.Wait;
@@ -548,17 +548,14 @@ public partial class TauriWindow : IDisposable
                     break;
 
                 default:
-                    // Log unknown events for debugging
-                    if (LogVerbosity >= 3)
-                    {
-                        Log($"Unhandled event: {eventType}");
-                    }
+                    // Log unknown events for debugging (Trace level)
+                    if (_logger != null) TauriLog.UnhandledEvent(_logger, LogTitle, eventType ?? "unknown");
                     break;
             }
         }
         catch (JsonException ex)
         {
-            Log($"JSON parse error: {ex.Message}");
+            if (_logger != null) TauriLog.JsonParseError(_logger, LogTitle, ex.Message);
         }
     }
 
