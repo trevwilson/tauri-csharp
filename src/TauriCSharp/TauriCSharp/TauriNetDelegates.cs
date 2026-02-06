@@ -32,8 +32,9 @@ public partial class TauriWindow
     /// <param name="top">Position from top in pixels</param>
     internal void OnLocationChanged(int left, int top)
     {
-        var location = new Point(left, top);
-        WindowLocationChanged?.Invoke(this, location);
+        _startupParameters.Left = left;
+        _startupParameters.Top = top;
+        WindowLocationChanged?.Invoke(this, new Point(left, top));
     }
 
     public event EventHandler<Size>? WindowSizeChanged;
@@ -56,8 +57,9 @@ public partial class TauriWindow
     /// </summary>
     internal void OnSizeChanged(int width, int height)
     {
-        var size = new Size(width, height);
-        WindowSizeChanged?.Invoke(this, size);
+        _startupParameters.Width = width;
+        _startupParameters.Height = height;
+        WindowSizeChanged?.Invoke(this, new Size(width, height));
     }
 
     public event EventHandler? WindowFocusIn;
@@ -103,6 +105,8 @@ public partial class TauriWindow
     /// </summary>
     internal void OnMaximized()
     {
+        _startupParameters.Maximized = true;
+        _startupParameters.Minimized = false;
         WindowMaximized?.Invoke(this, EventArgs.Empty);
     }
 
@@ -126,6 +130,8 @@ public partial class TauriWindow
     /// </summary>
     internal void OnRestored()
     {
+        _startupParameters.Maximized = false;
+        _startupParameters.Minimized = false;
         WindowRestored?.Invoke(this, EventArgs.Empty);
     }
 
@@ -172,6 +178,8 @@ public partial class TauriWindow
     /// </summary>
     internal void OnMinimized()
     {
+        _startupParameters.Minimized = true;
+        _startupParameters.Maximized = false;
         WindowMinimized?.Invoke(this, EventArgs.Empty);
     }
 

@@ -4,7 +4,6 @@
 // Updated for the new separate event loop, window, and webview architecture.
 
 using System.Drawing;
-using System.Runtime.InteropServices;
 using TauriCSharp.Handles;
 using TauriCSharp.Interop;
 
@@ -15,21 +14,6 @@ public partial class TauriWindow
     // ========================================================================
     // Window Properties - implemented via Velox wry-ffi
     // ========================================================================
-
-    /// <summary>
-    /// Gets the window size using wry-ffi.
-    /// </summary>
-    private Size GetSizeWry()
-    {
-        if (_wryWindow == IntPtr.Zero)
-            return new Size(_startupParameters.Width, _startupParameters.Height);
-
-        if (WryInterop.WindowInnerSize(_wryWindow, out var size))
-        {
-            return new Size((int)size.Width, (int)size.Height);
-        }
-        return new Size(_startupParameters.Width, _startupParameters.Height);
-    }
 
     /// <summary>
     /// Sets the window size using wry-ffi.
@@ -43,21 +27,6 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Gets the window position using wry-ffi.
-    /// </summary>
-    private Point GetPositionWry()
-    {
-        if (_wryWindow == IntPtr.Zero)
-            return new Point(_startupParameters.Left, _startupParameters.Top);
-
-        if (WryInterop.WindowOuterPosition(_wryWindow, out var pos))
-        {
-            return new Point((int)pos.X, (int)pos.Y);
-        }
-        return new Point(_startupParameters.Left, _startupParameters.Top);
-    }
-
-    /// <summary>
     /// Sets the window position using wry-ffi.
     /// </summary>
     private void SetPositionWry(int x, int y)
@@ -66,22 +35,6 @@ public partial class TauriWindow
         {
             WryInterop.WindowSetPosition(_wryWindow, x, y);
         }
-    }
-
-    /// <summary>
-    /// Gets the window title using wry-ffi.
-    /// </summary>
-    private string GetTitleWry()
-    {
-        if (_wryWindow == IntPtr.Zero)
-            return _startupParameters.Title ?? "TauriCSharp";
-
-        var titlePtr = WryInterop.WindowTitle(_wryWindow);
-        if (titlePtr != IntPtr.Zero)
-        {
-            return Marshal.PtrToStringUTF8(titlePtr) ?? "";
-        }
-        return _startupParameters.Title ?? "";
     }
 
     /// <summary>
@@ -194,17 +147,6 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Gets the window visibility.
-    /// </summary>
-    private bool GetVisibleWry()
-    {
-        if (_wryWindow == IntPtr.Zero)
-            return true;
-
-        return WryInterop.WindowIsVisible(_wryWindow);
-    }
-
-    /// <summary>
     /// Sets the window visibility.
     /// </summary>
     private void SetVisibleWry(bool visible)
@@ -243,28 +185,6 @@ public partial class TauriWindow
         {
             WryInterop.WindowSetMaxSize(_wryWindow, maxWidth, maxHeight);
         }
-    }
-
-    /// <summary>
-    /// Gets whether the window is maximized.
-    /// </summary>
-    private bool GetMaximizedWry()
-    {
-        if (_wryWindow == IntPtr.Zero)
-            return _startupParameters.Maximized;
-
-        return WryInterop.WindowIsMaximized(_wryWindow);
-    }
-
-    /// <summary>
-    /// Gets whether the window is minimized.
-    /// </summary>
-    private bool GetMinimizedWry()
-    {
-        if (_wryWindow == IntPtr.Zero)
-            return _startupParameters.Minimized;
-
-        return WryInterop.WindowIsMinimized(_wryWindow);
     }
 
     // ========================================================================

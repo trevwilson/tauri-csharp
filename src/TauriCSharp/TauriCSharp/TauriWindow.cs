@@ -521,21 +521,13 @@ public partial class TauriWindow
     /// </summary>
     public bool FullScreen
     {
-        get
-        {
-            if (_nativeInstance == IntPtr.Zero)
-                return _startupParameters.FullScreen;
-
-            // wry-ffi does not expose fullscreen getter
-            return false;
-        }
+        get => _startupParameters.FullScreen;
         set
         {
             if (FullScreen != value)
             {
-                if (_nativeInstance == IntPtr.Zero)
-                    _startupParameters.FullScreen = value;
-                else
+                _startupParameters.FullScreen = value;
+                if (_nativeInstance != IntPtr.Zero)
                     WryInterop.WindowSetFullscreen(_nativeInstance, value);
             }
         }
@@ -628,23 +620,14 @@ public partial class TauriWindow
     /// <seealso cref="UseOsDefaultLocation" />
     public Point Location
     {
-        get
-        {
-            if (_nativeInstance == IntPtr.Zero)
-                return new Point(_startupParameters.Left, _startupParameters.Top);
-
-            return GetPositionWry();
-        }
+        get => new(_startupParameters.Left, _startupParameters.Top);
         set
         {
             if (Location.X != value.X || Location.Y != value.Y)
             {
-                if (_nativeInstance == IntPtr.Zero)
-                {
-                    _startupParameters.Left = value.X;
-                    _startupParameters.Top = value.Y;
-                }
-                else
+                _startupParameters.Left = value.X;
+                _startupParameters.Top = value.Y;
+                if (_nativeInstance != IntPtr.Zero)
                     SetPositionWry(value.X, value.Y);
             }
         }
@@ -672,23 +655,19 @@ public partial class TauriWindow
     /// </summary>
     public bool Maximized
     {
-        get
-        {
-            if (_nativeInstance == IntPtr.Zero)
-                return _startupParameters.Maximized;
-
-            return GetMaximizedWry();
-        }
+        get => _startupParameters.Maximized;
         set
         {
             if (Maximized != value)
             {
-                if (_nativeInstance == IntPtr.Zero)
-                    _startupParameters.Maximized = value;
-                else if (value)
-                    MaximizeWry();
-                else
-                    RestoreWry();
+                _startupParameters.Maximized = value;
+                if (_nativeInstance != IntPtr.Zero)
+                {
+                    if (value)
+                        MaximizeWry();
+                    else
+                        RestoreWry();
+                }
             }
         }
     }
@@ -748,23 +727,19 @@ public partial class TauriWindow
     /// </summary>
     public bool Minimized
     {
-        get
-        {
-            if (_nativeInstance == IntPtr.Zero)
-                return _startupParameters.Minimized;
-
-            return GetMinimizedWry();
-        }
+        get => _startupParameters.Minimized;
         set
         {
             if (Minimized != value)
             {
-                if (_nativeInstance == IntPtr.Zero)
-                    _startupParameters.Minimized = value;
-                else if (value)
-                    MinimizeWry();
-                else
-                    RestoreWry();
+                _startupParameters.Minimized = value;
+                if (_nativeInstance != IntPtr.Zero)
+                {
+                    if (value)
+                        MinimizeWry();
+                    else
+                        RestoreWry();
+                }
             }
         }
     }
@@ -857,23 +832,14 @@ public partial class TauriWindow
     /// <seealso cref="UseOsDefaultSize"/>
     public Size Size
     {
-        get
-        {
-            if (_nativeInstance == IntPtr.Zero)
-                return new Size(_startupParameters.Width, _startupParameters.Height);
-
-            return GetSizeWry();
-        }
+        get => new(_startupParameters.Width, _startupParameters.Height);
         set
         {
             if (Size.Width != value.Width || Size.Height != value.Height)
             {
-                if (_nativeInstance == IntPtr.Zero)
-                {
-                    _startupParameters.Height = value.Height;
-                    _startupParameters.Width = value.Width;
-                }
-                else
+                _startupParameters.Width = value.Width;
+                _startupParameters.Height = value.Height;
+                if (_nativeInstance != IntPtr.Zero)
                     SetSizeWry(value.Width, value.Height);
             }
         }
@@ -1059,10 +1025,9 @@ public partial class TauriWindow
     {
         get
         {
-            if (_nativeInstance == IntPtr.Zero)
-                return _startupParameters.Title;
-
-            return GetTitleWry();
+            // Return local shadow value — on Linux/GTK, set_title is async so the
+            // native getter may return stale data before the event loop processes it.
+            return _startupParameters.Title;
         }
         set
         {
@@ -1072,9 +1037,8 @@ public partial class TauriWindow
                 if (value is not null && value.Length > 31 && IsLinuxPlatform)
                     value = value[..31];
 
-                if (_nativeInstance == IntPtr.Zero)
-                    _startupParameters.Title = value;
-                else
+                _startupParameters.Title = value;
+                if (_nativeInstance != IntPtr.Zero)
                     SetTitleWry(value ?? string.Empty);
             }
         }
