@@ -186,6 +186,8 @@ public class TauriIpc : IDisposable
         }
         _pendingRequests.Clear();
         _handlers.Clear();
+
+        GC.SuppressFinalize(this);
     }
 
     private class PendingRequest

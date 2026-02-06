@@ -33,35 +33,22 @@ public struct NativeMonitor
 /// <summary>
 /// Represents information about a monitor.
 /// </summary>
-public readonly struct Monitor
+public readonly struct Monitor(Rectangle monitor, Rectangle work, double scale)
 {
     /// <summary>
     /// The full area of the monitor.
     /// </summary>
-    public readonly Rectangle MonitorArea;
+    public readonly Rectangle MonitorArea = monitor;
 
     /// <summary>
     /// The working area of the monitor excluding taskbars, docked windows, and docked tool bars.
     /// </summary>
-    public readonly Rectangle WorkArea;
+    public readonly Rectangle WorkArea = work;
 
     /// <summary>
     /// The scale factor of the monitor. Standard value is 1.0.
     /// </summary>
-    public readonly double Scale;
-
-    /// <summary>
-    /// Initializes a new instance of the <see cref="Monitor"/> struct.
-    /// </summary>
-    /// <param name="monitor">The area of monitor.</param>
-    /// <param name="work">The working area of the monitor.</param>
-    /// <param name="scale">The scale factor.</param>
-    public Monitor(Rectangle monitor, Rectangle work, double scale)
-    {
-        MonitorArea = monitor;
-        WorkArea = work;
-        Scale = scale;
-    }
+    public readonly double Scale = scale;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Monitor"/> struct using native structures.

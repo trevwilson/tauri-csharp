@@ -162,7 +162,7 @@ public partial class TauriWindow
     /// <exception cref="ApplicationException">
     /// An ApplicationException is thrown if the window hasn't been initialized yet.
     /// </exception>
-    public uint ScreenDpi
+    public static uint ScreenDpi
     {
         get
         {
@@ -251,9 +251,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.Transparent;
 
-            var enabled = false;
-            enabled = _startupParameters.Transparent;
-            return enabled;
+            return _startupParameters.Transparent;
         }
         set
         {
@@ -286,9 +284,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.ContextMenuEnabled;
 
-            var enabled = false;
-            enabled = _startupParameters.ContextMenuEnabled;
-            return enabled;
+            return _startupParameters.ContextMenuEnabled;
         }
         set
         {
@@ -313,9 +309,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.DevToolsEnabled;
 
-            var enabled = false;
-            enabled = _startupParameters.DevToolsEnabled;
-            return enabled;
+            return _startupParameters.DevToolsEnabled;
         }
         set
         {
@@ -336,9 +330,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.MediaAutoplayEnabled;
 
-            var enabled = false;
-            enabled = _startupParameters.MediaAutoplayEnabled;
-            return enabled;
+            return _startupParameters.MediaAutoplayEnabled;
         }
         set
         {
@@ -381,9 +373,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.FileSystemAccessEnabled;
 
-            var enabled = false;
-            enabled = _startupParameters.FileSystemAccessEnabled;
-            return enabled;
+            return _startupParameters.FileSystemAccessEnabled;
         }
         set
         {
@@ -404,9 +394,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.WebSecurityEnabled;
 
-            var enabled = true;
-            enabled = _startupParameters.WebSecurityEnabled;
-            return enabled;
+            return _startupParameters.WebSecurityEnabled;
         }
         set
         {
@@ -427,9 +415,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.JavascriptClipboardAccessEnabled;
 
-            var enabled = true;
-            enabled = _startupParameters.JavascriptClipboardAccessEnabled;
-            return enabled;
+            return _startupParameters.JavascriptClipboardAccessEnabled;
         }
         set
         {
@@ -450,9 +436,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.MediaStreamEnabled;
 
-            var enabled = true;
-            enabled = _startupParameters.MediaStreamEnabled;
-            return enabled;
+            return _startupParameters.MediaStreamEnabled;
         }
         set
         {
@@ -473,9 +457,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.SmoothScrollingEnabled;
 
-            var enabled = false;
-            enabled = _startupParameters.SmoothScrollingEnabled;
-            return enabled;
+            return _startupParameters.SmoothScrollingEnabled;
         }
         set
         {
@@ -496,9 +478,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.IgnoreCertificateErrorsEnabled;
 
-            var enabled = false;
-            enabled = _startupParameters.IgnoreCertificateErrorsEnabled;
-            return enabled;
+            return _startupParameters.IgnoreCertificateErrorsEnabled;
         }
         set
         {
@@ -519,9 +499,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.NotificationsEnabled;
 
-            var enabled = false;
-            enabled = _startupParameters.NotificationsEnabled;
-            return enabled;
+            return _startupParameters.NotificationsEnabled;
         }
         set
         {
@@ -548,9 +526,8 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.FullScreen;
 
-            var fullScreen = false;
-            fullScreen = false; // wry-ffi does not expose fullscreen getter
-            return fullScreen;
+            // wry-ffi does not expose fullscreen getter
+            return false;
         }
         set
         {
@@ -578,9 +555,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.GrantBrowserPermissions;
 
-            var grant = false;
-            grant = _startupParameters.GrantBrowserPermissions;
-            return grant;
+            return _startupParameters.GrantBrowserPermissions;
         }
         set
         {
@@ -721,7 +696,7 @@ public partial class TauriWindow
     ///<summary>Gets or set the maximum size of the native window in pixels.</summary>
     public Point MaxSize
     {
-        get => new Point(MaxWidth, MaxHeight);
+        get => new(MaxWidth, MaxHeight);
         set
         {
             if (MaxWidth != value.X || MaxHeight != value.Y)
@@ -797,7 +772,7 @@ public partial class TauriWindow
     ///<summary>Gets or set the minimum size of the native window in pixels.</summary>
     public Point MinSize
     {
-        get => new Point(MinWidth, MinHeight);
+        get => new(MinWidth, MinHeight);
         set
         {
             if (MinWidth != value.X || MinHeight != value.Y)
@@ -861,9 +836,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.Resizable;
 
-            var resizable = false;
-            resizable = _startupParameters.Resizable;
-            return resizable;
+            return _startupParameters.Resizable;
         }
         set
         {
@@ -1133,9 +1106,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.Topmost;
 
-            var topmost = false;
-            topmost = _startupParameters.Topmost;
-            return topmost;
+            return _startupParameters.Topmost;
         }
         set
         {
@@ -1420,9 +1391,7 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 return _startupParameters.Zoom;
 
-            var zoom = 0;
-            zoom = _startupParameters.Zoom;
-            return zoom;
+            return _startupParameters.Zoom;
         }
         set
         {
@@ -2355,6 +2324,7 @@ public partial class TauriWindow
     /// <param name="data">Runtime path for WebView2</param>
     public TauriWindow Win32SetWebView2Path(string data)
     {
+        _ = data; // Will be used when WebView2 runtime path support is implemented
         if (IsWindowsPlatform)
             Log("Warning: WebView2 runtime path not applicable with wry-ffi backend");
         else
@@ -2752,6 +2722,7 @@ public partial class TauriWindow
     /// <returns>Array of paths</returns>
     private string[] ShowOpenDialog(bool foldersOnly, string title, string? defaultPath, bool multiSelect, (string Name, string[] Extensions)[]? filters)
     {
+        _ = (title, defaultPath, multiSelect, filters); // Will be used when dialog support is implemented
         var dialogType = foldersOnly ? "Open folder" : "Open file";
         throw new NotSupportedException($"{dialogType} dialog is not yet supported with the wry-ffi backend. " +
             "This feature will be implemented in a future release.");
@@ -2763,28 +2734,7 @@ public partial class TauriWindow
     /// <param name="message">Log message</param>
     private void Log(string message)
     {
-        if (_logger != null)
-        {
-            _logger.LogDebug("[{WindowTitle}] {Message}", LogTitle, message);
-        }
-    }
-
-    /// <summary>
-    /// Returns an array of strings for native filters
-    /// </summary>
-    /// <param name="filters"></param>
-    /// <param name="empty"></param>
-    /// <returns>String array of filters</returns>
-    private static string[] GetNativeFilters((string Name, string[] Extensions)[] filters, bool empty = false)
-    {
-        var nativeFilters = Array.Empty<string>();
-        if (!empty && filters is { Length: > 0 })
-        {
-            nativeFilters = IsMacOsPlatform ?
-                filters.SelectMany(t => t.Extensions.Select(s => s == "*" ? s : s.TrimStart('*', '.'))).ToArray() :
-                filters.Select(t => $"{t.Name}|{t.Extensions.Select(s => s.StartsWith('.') ? $"*{s}" : !s.StartsWith("*.") ? $"*.{s}" : s).Aggregate((e1, e2) => $"{e1};{e2}")}").ToArray();
-        }
-        return nativeFilters;
+        _logger?.LogDebug("[{WindowTitle}] {Message}", LogTitle, message);
     }
 
 

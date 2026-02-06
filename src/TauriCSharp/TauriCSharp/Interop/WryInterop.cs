@@ -1,6 +1,7 @@
 // wry-ffi C# bindings - P/Invoke declarations
 // All FFI functions from the Velox-based wry-ffi crate
 
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace TauriCSharp.Interop;
@@ -150,8 +151,9 @@ internal static partial class WryInterop
     /// <summary>
     /// Create a new window.
     /// </summary>
-    [DllImport(WryLib, EntryPoint = "wry_window_build", CallingConvention = CallingConvention.Cdecl)]
-    public static extern IntPtr WindowBuild(IntPtr eventLoop, in WryWindowConfig config);
+    [LibraryImport(WryLib, EntryPoint = "wry_window_build")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial IntPtr WindowBuild(IntPtr eventLoop, in WryWindowConfig config);
 
     /// <summary>
     /// Free a window.
@@ -246,9 +248,10 @@ internal static partial class WryInterop
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool WindowSetClosable(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool closable);
 
-    [DllImport(WryLib, EntryPoint = "wry_window_set_background_color", CallingConvention = CallingConvention.Cdecl)]
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_background_color")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
-    public static extern bool WindowSetBackgroundColor(IntPtr window, in WryColor color);
+    public static partial bool WindowSetBackgroundColor(IntPtr window, in WryColor color);
 
     [LibraryImport(WryLib, EntryPoint = "wry_window_set_theme")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
@@ -463,8 +466,9 @@ internal static partial class WryInterop
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     public static partial IntPtr WindowAvailableMonitors(IntPtr window);
 
-    [DllImport(WryLib, EntryPoint = "wry_window_monitor_from_point", CallingConvention = CallingConvention.Cdecl)]
-    public static extern IntPtr WindowMonitorFromPoint(IntPtr window, WryPoint point);
+    [LibraryImport(WryLib, EntryPoint = "wry_window_monitor_from_point")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial IntPtr WindowMonitorFromPoint(IntPtr window, WryPoint point);
 
     // ==========================================================================
     // Webview Creation/Destruction
@@ -473,8 +477,9 @@ internal static partial class WryInterop
     /// <summary>
     /// Create a webview in a window.
     /// </summary>
-    [DllImport(WryLib, EntryPoint = "wry_webview_build", CallingConvention = CallingConvention.Cdecl)]
-    public static extern IntPtr WebviewBuild(IntPtr window, in WryWebviewConfig config);
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_build")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial IntPtr WebviewBuild(IntPtr window, in WryWebviewConfig config);
 
     /// <summary>
     /// Free a webview.
@@ -558,33 +563,40 @@ internal static partial class WryInterop
     // Dialogs
     // ==========================================================================
 
-    [DllImport(WryLib, EntryPoint = "wry_dialog_open", CallingConvention = CallingConvention.Cdecl)]
-    public static extern WryDialogSelection DialogOpen(in WryDialogOpenOptions options);
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_open")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial WryDialogSelection DialogOpen(in WryDialogOpenOptions options);
 
-    [DllImport(WryLib, EntryPoint = "wry_dialog_save", CallingConvention = CallingConvention.Cdecl)]
-    public static extern WryDialogSelection DialogSave(in WryDialogSaveOptions options);
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_save")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial WryDialogSelection DialogSave(in WryDialogSaveOptions options);
 
     [LibraryImport(WryLib, EntryPoint = "wry_dialog_selection_free")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     public static partial void DialogSelectionFree(WryDialogSelection selection);
 
-    [DllImport(WryLib, EntryPoint = "wry_dialog_message", CallingConvention = CallingConvention.Cdecl)]
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_message")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
-    public static extern bool DialogMessage(in WryMessageDialogOptions options);
+    public static partial bool DialogMessage(in WryMessageDialogOptions options);
 
-    [DllImport(WryLib, EntryPoint = "wry_dialog_confirm", CallingConvention = CallingConvention.Cdecl)]
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_confirm")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
-    public static extern bool DialogConfirm(in WryConfirmDialogOptions options);
+    public static partial bool DialogConfirm(in WryConfirmDialogOptions options);
 
-    [DllImport(WryLib, EntryPoint = "wry_dialog_ask", CallingConvention = CallingConvention.Cdecl)]
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_ask")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
-    public static extern bool DialogAsk(in WryAskDialogOptions options);
+    public static partial bool DialogAsk(in WryAskDialogOptions options);
 
-    [DllImport(WryLib, EntryPoint = "wry_dialog_prompt", CallingConvention = CallingConvention.Cdecl)]
-    public static extern WryPromptDialogResult DialogPrompt(in WryPromptDialogOptions options);
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_prompt")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial WryPromptDialogResult DialogPrompt(in WryPromptDialogOptions options);
 
-    [DllImport(WryLib, EntryPoint = "wry_dialog_prompt_result_free", CallingConvention = CallingConvention.Cdecl)]
-    public static extern void DialogPromptResultFree(WryPromptDialogResult result);
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_prompt_result_free")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    public static partial void DialogPromptResultFree(WryPromptDialogResult result);
 
     // ==========================================================================
     // Legacy API Shims (for backward compatibility during migration)

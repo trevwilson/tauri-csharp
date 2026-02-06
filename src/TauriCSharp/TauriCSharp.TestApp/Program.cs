@@ -13,7 +13,7 @@ class Program
     private static int _failCount = 0;
 
     [STAThread]
-    static void Main(string[] args)
+    static void Main(string[] _)
     {
         Console.WriteLine("===========================================");
         Console.WriteLine("  TauriCSharp Test App - wry-ffi Validation");
@@ -133,7 +133,7 @@ class Program
                 break;
 
             case var m when m.StartsWith("echo:"):
-                var echoText = message.Substring(5);
+                var echoText = message[5..];
                 _window.SendWebMessage($"echo:{echoText}");
                 break;
 
@@ -158,14 +158,14 @@ class Program
                 break;
 
             case var m when m.StartsWith("set-title:"):
-                var newTitle = message.Substring(10);
+                var newTitle = message[10..];
                 _window.Title = newTitle;
                 _window.SendWebMessage($"title-set:{_window.Title}");
                 RecordTest("Set window title", _window.Title == newTitle);
                 break;
 
             case var m when m.StartsWith("resize:"):
-                var sizeStr = message.Substring(7);
+                var sizeStr = message[7..];
                 var parts = sizeStr.Split('x');
                 if (parts.Length == 2 && int.TryParse(parts[0], out var w) && int.TryParse(parts[1], out var h))
                 {
@@ -175,7 +175,7 @@ class Program
                 break;
 
             case var m when m.StartsWith("move:"):
-                var posStr = message.Substring(5);
+                var posStr = message[5..];
                 var posParts = posStr.Split('x');
                 if (posParts.Length == 2 && int.TryParse(posParts[0], out var x) && int.TryParse(posParts[1], out var y))
                 {
@@ -203,7 +203,7 @@ class Program
                 break;
 
             case var m when m.StartsWith("navigate:"):
-                var targetUrl = message.Substring(9);
+                var targetUrl = message[9..];
                 _window.Load(targetUrl);
                 _window.SendWebMessage($"navigating:{targetUrl}");
                 break;

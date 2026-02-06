@@ -14,52 +14,32 @@ namespace TauriCSharp.Interop;
 /// RGBA color matching Rust WryColor.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
-internal struct WryColor
+internal struct WryColor(byte red, byte green, byte blue, byte alpha = 255)
 {
-    public byte Red;
-    public byte Green;
-    public byte Blue;
-    public byte Alpha;
-
-    public WryColor(byte red, byte green, byte blue, byte alpha = 255)
-    {
-        Red = red;
-        Green = green;
-        Blue = blue;
-        Alpha = alpha;
-    }
+    public byte Red = red;
+    public byte Green = green;
+    public byte Blue = blue;
+    public byte Alpha = alpha;
 }
 
 /// <summary>
 /// Point with f64 coordinates matching Rust WryPoint.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
-internal struct WryPoint
+internal struct WryPoint(double x, double y)
 {
-    public double X;
-    public double Y;
-
-    public WryPoint(double x, double y)
-    {
-        X = x;
-        Y = y;
-    }
+    public double X = x;
+    public double Y = y;
 }
 
 /// <summary>
 /// Size with f64 dimensions matching Rust WrySize.
 /// </summary>
 [StructLayout(LayoutKind.Sequential)]
-internal struct WrySize
+internal struct WrySize(double width, double height)
 {
-    public double Width;
-    public double Height;
-
-    public WrySize(double width, double height)
-    {
-        Width = width;
-        Height = height;
-    }
+    public double Width = width;
+    public double Height = height;
 }
 
 // ============================================================================
@@ -177,9 +157,7 @@ internal struct WryWebviewConfig
 {
     public IntPtr Url;  // *const c_char
     public WryCustomProtocolList CustomProtocols;
-    [MarshalAs(UnmanagedType.U1)]
     public bool Devtools;
-    [MarshalAs(UnmanagedType.U1)]
     public bool IsChild;
     public double X;
     public double Y;
@@ -310,9 +288,7 @@ internal struct WryDialogOpenOptions
     public IntPtr DefaultPath; // *const c_char
     public IntPtr Filters;     // *const WryDialogFilter
     public nuint FilterCount;
-    [MarshalAs(UnmanagedType.U1)]
     public bool AllowDirectories;
-    [MarshalAs(UnmanagedType.U1)]
     public bool AllowMultiple;
 }
 
@@ -402,7 +378,6 @@ internal struct WryPromptDialogOptions
 internal struct WryPromptDialogResult
 {
     public IntPtr Value; // *mut c_char
-    [MarshalAs(UnmanagedType.U1)]
     public bool Accepted;
 }
 

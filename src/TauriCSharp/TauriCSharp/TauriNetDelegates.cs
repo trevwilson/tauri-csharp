@@ -315,7 +315,7 @@ public partial class TauriWindow
             return true; // Allow by default
 
         // Invoke all handlers; if any return false, cancel navigation
-        foreach (NavigationDelegate handler in handlers.GetInvocationList())
+        foreach (NavigationDelegate handler in handlers.GetInvocationList().Cast<NavigationDelegate>())
         {
             if (!handler(this, url))
                 return false;
@@ -326,7 +326,7 @@ public partial class TauriWindow
     //NOTE: There is 1 callback from C++ to C# which is automatically registered. The .NET callback appropriate for the custom scheme is handled in OnCustomScheme().
 
     public delegate Stream? NetCustomSchemeDelegate(object sender, string scheme, string url, out string contentType);
-    internal Dictionary<string, NetCustomSchemeDelegate?> CustomSchemes = new();
+    internal Dictionary<string, NetCustomSchemeDelegate?> CustomSchemes = [];
 
     /// <summary>
     /// Registers user-defined custom schemes (other than 'http', 'https' and 'file') and handler methods to receive callbacks
@@ -395,13 +395,13 @@ public partial class TauriWindow
         if (colonPos < 0)
             throw new TauriSchemeException($"Invalid URL '{url}': missing scheme separator (':').");
 
-        var scheme = url.Substring(0, colonPos).ToLower();
+        var scheme = url[..colonPos].ToLower();
 
-        if (!CustomSchemes.ContainsKey(scheme))
+        if (!CustomSchemes.TryGetValue(scheme, out var schemeHandler))
             throw new TauriSchemeException($"No handler registered for scheme '{scheme}'.", scheme, url);
 
         contentType = "";
-        var responseStream = CustomSchemes[scheme]?.Invoke(this, scheme, url, out contentType);
+        var responseStream = schemeHandler?.Invoke(this, scheme, url, out contentType);
 
         if (responseStream == null)
         {

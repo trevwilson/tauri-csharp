@@ -332,45 +332,45 @@ public partial class TauriWindow
     }
 
     // Platform-specific features that need platform-specific implementations
-    private void SetIconFileNotSupported() => ThrowNotSupported("Window icon");
-    private void GetTransparentNotSupported() => ThrowNotSupported("Transparent window state query");
-    private void GetContextMenuEnabledNotSupported() => ThrowNotSupported("Context menu enabled state");
-    private void SetContextMenuEnabledNotSupported() => ThrowNotSupported("Context menu enabled");
-    private void GetDevToolsEnabledNotSupported() => ThrowNotSupported("DevTools enabled state query");
-    private void SetDevToolsEnabledNotSupported() => ThrowNotSupported("DevTools enabled");
-    private void GetGrantBrowserPermissionsNotSupported() => ThrowNotSupported("Browser permissions state");
-    private void GetResizableNotSupported() => ThrowNotSupported("Resizable state query");
-    private void SetResizableNotSupported() => ThrowNotSupported("Resizable");
-    private void GetTopmostNotSupported() => ThrowNotSupported("Topmost state query");
-    private void SetTopmostNotSupported() => ThrowNotSupported("Topmost");
+    private static void SetIconFileNotSupported() => ThrowNotSupported("Window icon");
+    private static void GetTransparentNotSupported() => ThrowNotSupported("Transparent window state query");
+    private static void GetContextMenuEnabledNotSupported() => ThrowNotSupported("Context menu enabled state");
+    private static void SetContextMenuEnabledNotSupported() => ThrowNotSupported("Context menu enabled");
+    private static void GetDevToolsEnabledNotSupported() => ThrowNotSupported("DevTools enabled state query");
+    private static void SetDevToolsEnabledNotSupported() => ThrowNotSupported("DevTools enabled");
+    private static void GetGrantBrowserPermissionsNotSupported() => ThrowNotSupported("Browser permissions state");
+    private static void GetResizableNotSupported() => ThrowNotSupported("Resizable state query");
+    private static void SetResizableNotSupported() => ThrowNotSupported("Resizable");
+    private static void GetTopmostNotSupported() => ThrowNotSupported("Topmost state query");
+    private static void SetTopmostNotSupported() => ThrowNotSupported("Topmost");
 
     // Monitor/DPI features
-    private void GetMonitorsNotSupported() => ThrowNotSupported("Monitor enumeration");
-    private void GetScreenDpiNotSupported() => ThrowNotSupported("Screen DPI");
+    private static void GetMonitorsNotSupported() => ThrowNotSupported("Monitor enumeration");
+    private static void GetScreenDpiNotSupported() => ThrowNotSupported("Screen DPI");
 
     // Dialog features
-    private void ShowOpenFileNotSupported() => ThrowNotSupported("Open file dialog");
-    private void ShowOpenFolderNotSupported() => ThrowNotSupported("Open folder dialog");
-    private void ShowSaveFileNotSupported() => ThrowNotSupported("Save file dialog");
-    private void ShowMessageDialogNotSupported() => ThrowNotSupported("Message dialog");
+    private static void ShowOpenFileNotSupported() => ThrowNotSupported("Open file dialog");
+    private static void ShowOpenFolderNotSupported() => ThrowNotSupported("Open folder dialog");
+    private static void ShowSaveFileNotSupported() => ThrowNotSupported("Save file dialog");
+    private static void ShowMessageDialogNotSupported() => ThrowNotSupported("Message dialog");
 
     // Windows-specific
-    private void GetWindowHandleNotSupported() => ThrowNotSupported("Native window handle");
-    private void SetWebView2PathNotSupported() => ThrowNotSupported("WebView2 runtime path");
-    private void ClearBrowserAutoFillNotSupported() => ThrowNotSupported("Browser autofill clearing");
-    private void ShowNotificationNotSupported() => ThrowNotSupported("Notifications");
+    private static void GetWindowHandleNotSupported() => ThrowNotSupported("Native window handle");
+    private static void SetWebView2PathNotSupported() => ThrowNotSupported("WebView2 runtime path");
+    private static void ClearBrowserAutoFillNotSupported() => ThrowNotSupported("Browser autofill clearing");
+    private static void ShowNotificationNotSupported() => ThrowNotSupported("Notifications");
 
     // Browser settings that wry doesn't expose at runtime
-    private void GetMediaAutoplayNotSupported() => ThrowNotSupported("Media autoplay state query");
-    private void GetUserAgentNotSupported() => ThrowNotSupported("User agent query");
-    private void GetFileSystemAccessNotSupported() => ThrowNotSupported("File system access state");
-    private void GetWebSecurityNotSupported() => ThrowNotSupported("Web security state");
-    private void GetJavascriptClipboardNotSupported() => ThrowNotSupported("JavaScript clipboard state");
-    private void GetMediaStreamNotSupported() => ThrowNotSupported("Media stream state");
-    private void GetSmoothScrollingNotSupported() => ThrowNotSupported("Smooth scrolling state");
-    private void GetIgnoreCertErrorsNotSupported() => ThrowNotSupported("Ignore cert errors state");
-    private void GetNotificationsNotSupported() => ThrowNotSupported("Notifications enabled state");
+    private static void GetMediaAutoplayNotSupported() => ThrowNotSupported("Media autoplay state query");
+    private static void GetUserAgentNotSupported() => ThrowNotSupported("User agent query");
+    private static void GetFileSystemAccessNotSupported() => ThrowNotSupported("File system access state");
+    private static void GetWebSecurityNotSupported() => ThrowNotSupported("Web security state");
+    private static void GetJavascriptClipboardNotSupported() => ThrowNotSupported("JavaScript clipboard state");
+    private static void GetMediaStreamNotSupported() => ThrowNotSupported("Media stream state");
+    private static void GetSmoothScrollingNotSupported() => ThrowNotSupported("Smooth scrolling state");
+    private static void GetIgnoreCertErrorsNotSupported() => ThrowNotSupported("Ignore cert errors state");
+    private static void GetNotificationsNotSupported() => ThrowNotSupported("Notifications enabled state");
 
     // Center functionality
-    private void CenterNotSupported() => ThrowNotSupported("Window centering");
+    private static void CenterNotSupported() => ThrowNotSupported("Window centering");
 }

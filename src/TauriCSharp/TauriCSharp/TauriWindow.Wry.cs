@@ -328,12 +328,12 @@ public partial class TauriWindow : IDisposable
     /// <summary>
     /// Handles a protocol request from the webview.
     /// </summary>
-    private bool HandleProtocolRequest(IntPtr requestPtr, IntPtr responsePtr, IntPtr userData)
+    private unsafe bool HandleProtocolRequest(IntPtr requestPtr, IntPtr responsePtr, IntPtr userData)
     {
         try
         {
-            // Read request
-            var request = Marshal.PtrToStructure<WryCustomProtocolRequest>(requestPtr);
+            // Read request (blittable struct - direct pointer read avoids Marshal runtime marshalling)
+            var request = System.Runtime.CompilerServices.Unsafe.Read<WryCustomProtocolRequest>((void*)requestPtr);
             var url = request.Url != IntPtr.Zero ? Marshal.PtrToStringUTF8(request.Url) : null;
 
             if (string.IsNullOrEmpty(url))
@@ -393,8 +393,8 @@ public partial class TauriWindow : IDisposable
                 UserData = bodyPtr, // Pass body ptr so we can free it
             };
 
-            // Write response
-            Marshal.StructureToPtr(response, responsePtr, false);
+            // Write response (blittable struct - direct pointer write avoids Marshal runtime marshalling)
+            System.Runtime.CompilerServices.Unsafe.Write((void*)responsePtr, response);
 
             // Keep the free callback alive
             _callbackRegistry.Register(_wryWindow, freeCallback);

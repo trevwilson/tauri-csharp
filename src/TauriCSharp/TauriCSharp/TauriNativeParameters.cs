@@ -215,7 +215,7 @@ internal struct TauriNativeParameters
         if (isWindows && Chromeless && (UseOsDefaultLocation || UseOsDefaultSize))
             response.Add($"Chromeless cannot be used with UseOsDefaultLocation or UseOsDefaultSize on Windows. Size and location must be specified.");
 
-        Size = Marshal.SizeOf(typeof(TauriNativeParameters));
+        Size = System.Runtime.CompilerServices.Unsafe.SizeOf<TauriNativeParameters>();
 
         return response;
     }
