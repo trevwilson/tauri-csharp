@@ -2504,8 +2504,7 @@ public partial class TauriWindow
             throw new TauriInitializationException("OpenDevTools cannot be called until the window is initialized.");
         if (!_startupParameters.DevToolsEnabled)
             Log("Warning: DevTools were not enabled at window creation time");
-        // DevTools open/close not exposed in Velox wry-ffi - they open via F12/right-click if enabled
-        Log("Note: DevTools controlled via F12/context menu when devtools enabled at creation time");
+        WryInterop.WebviewOpenDevTools(_wryWebview);
     }
 
     /// <summary>
@@ -2519,8 +2518,7 @@ public partial class TauriWindow
         Log(".CloseDevTools()");
         if (_nativeInstance == IntPtr.Zero)
             throw new TauriInitializationException("CloseDevTools cannot be called until the window is initialized.");
-        // DevTools open/close not exposed in Velox wry-ffi
-        Log("Note: CloseDevTools not available in wry-ffi backend");
+        WryInterop.WebviewCloseDevTools(_wryWebview);
     }
 
     /// <summary>

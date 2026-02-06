@@ -551,6 +551,20 @@ internal static partial class WryInterop
     public static partial bool WebviewSetBounds(IntPtr webview, double x, double y, double width, double height);
 
     // ==========================================================================
+    // Webview DevTools
+    // ==========================================================================
+
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_open_devtools")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WebviewOpenDevTools(IntPtr webview);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_close_devtools")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WebviewCloseDevTools(IntPtr webview);
+
+    // ==========================================================================
     // Webview Browsing Data
     // ==========================================================================
 

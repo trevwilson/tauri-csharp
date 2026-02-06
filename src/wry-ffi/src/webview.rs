@@ -422,6 +422,28 @@ pub extern "C" fn wry_webview_set_bounds(
 }
 
 // ============================================================================
+// DevTools
+// ============================================================================
+
+#[no_mangle]
+pub extern "C" fn wry_webview_open_devtools(webview: *mut WryWebviewHandle) -> bool {
+    with_webview(webview, |view| {
+        view.open_devtools();
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_webview_close_devtools(webview: *mut WryWebviewHandle) -> bool {
+    with_webview(webview, |view| {
+        view.close_devtools();
+        true
+    })
+    .unwrap_or(false)
+}
+
+// ============================================================================
 // Browsing Data
 // ============================================================================
 
