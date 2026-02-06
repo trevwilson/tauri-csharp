@@ -6,6 +6,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 TauriCSharp is a cross-platform desktop framework enabling .NET developers to build applications with web UI (HTML/CSS/JS) and C# backend. It uses Wry (WebView) and Tao (windowing) from the Tauri project via a Rust FFI layer.
 
+## Mandatory Instructions
+
+You **MUST** use robust, performant, and best-practice implementations without taking shortcuts or easy routes. This is a library intended for broad usage in a variety of applications - minimal approaches, workarounds, and hand-rolled alternatives to standard library features are **NOT** acceptable without explicit instruction or approval.
+
 ## Build Commands
 
 ```bash
