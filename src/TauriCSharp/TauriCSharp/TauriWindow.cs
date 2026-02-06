@@ -922,7 +922,7 @@ public partial class TauriWindow
     ///https://developer.apple.com/documentation/webkit/wkwebviewconfiguration?language=objc
     ///https://developer.apple.com/documentation/webkit/wkpreferences?language=objc
     /// </summary>
-    public string BrowserControlInitParameters
+    public string? BrowserControlInitParameters
     {
         get
         {
@@ -952,7 +952,7 @@ public partial class TauriWindow
     /// <exception cref="ApplicationException">
     /// Thrown if trying to set value after native window is initalized.
     /// </exception>
-    public string StartString
+    public string? StartString
     {
         get
         {
@@ -965,7 +965,10 @@ public partial class TauriWindow
             {
                 if (_nativeInstance != IntPtr.Zero)
                     throw new ApplicationException($"{nameof(ss)} cannot be changed after TauriCSharp Window is initialized");
-                LoadRawString(value);
+                if (value is not null)
+                    LoadRawString(value);
+                else
+                    _startupParameters.StartString = null;
             }
         }
     }
@@ -981,7 +984,7 @@ public partial class TauriWindow
     /// <exception cref="ApplicationException">
     /// Thrown if trying to set value after native window is initalized.
     /// </exception>
-    public string StartUrl
+    public string? StartUrl
     {
         get
         {
@@ -994,7 +997,10 @@ public partial class TauriWindow
             {
                 if (_nativeInstance != IntPtr.Zero)
                     throw new ApplicationException($"{nameof(su)} cannot be changed after TauriCSharp Window is initialized");
-                Load(value);
+                if (value is not null)
+                    Load(value);
+                else
+                    _startupParameters.StartUrl = null;
             }
         }
     }
@@ -1026,7 +1032,7 @@ public partial class TauriWindow
     /// <exception cref="ApplicationException">
     /// Thrown if platform is not Windows.
     /// </exception>
-    public string TemporaryFilesPath
+    public string? TemporaryFilesPath
     {
         get
         {
@@ -1054,7 +1060,7 @@ public partial class TauriWindow
     /// <exception cref="ApplicationException">
     /// Thrown if platform is not Windows.
     /// </exception>
-    public string NotificationRegistrationId
+    public string? NotificationRegistrationId
     {
         get
         {
@@ -1076,7 +1082,7 @@ public partial class TauriWindow
     /// Gets or sets the native window title.
     /// Default is "TauriCSharp".
     /// </summary>
-    public string Title
+    public string? Title
     {
         get
         {
@@ -1090,13 +1096,13 @@ public partial class TauriWindow
             if (Title != value)
             {
                 // Due to Linux/Gtk platform limitations, the window title has to be no more than 31 chars
-                if (value.Length > 31 && IsLinuxPlatform)
+                if (value is not null && value.Length > 31 && IsLinuxPlatform)
                     value = value[..31];
 
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.Title = value;
                 else
-                    SetTitleWry(value);
+                    SetTitleWry(value ?? string.Empty);
             }
         }
     }
@@ -1204,7 +1210,7 @@ public partial class TauriWindow
     /// Set assigns a new handler to the event.
     /// </summary>
     /// <seealso cref="WebMessageReceived"/>
-    public EventHandler<string> WebMessageReceivedHandler
+    public EventHandler<string>? WebMessageReceivedHandler
     {
         get
         {
@@ -1237,7 +1243,7 @@ public partial class TauriWindow
     /// Set assigns a new handler to the event.
     /// </summary>
     /// <seealso cref="WindowClosing" />
-    public NetClosingDelegate WindowClosingHandler
+    public NetClosingDelegate? WindowClosingHandler
     {
         get
         {
@@ -1254,7 +1260,7 @@ public partial class TauriWindow
     /// Set assigns a new handler to the event.
     /// </summary>
     /// <seealso cref="WindowCreating"/>
-    public EventHandler WindowCreatingHandler
+    public EventHandler? WindowCreatingHandler
     {
         get
         {
@@ -1271,7 +1277,7 @@ public partial class TauriWindow
     /// Set assigns a new handler to the event.
     /// </summary>
     /// <seealso cref="WindowCreated"/>
-    public EventHandler WindowCreatedHandler
+    public EventHandler? WindowCreatedHandler
     {
         get
         {
@@ -1288,7 +1294,7 @@ public partial class TauriWindow
     /// Set assigns a new handler to the event.
     /// </summary>
     /// <seealso cref="WindowLocationChanged"/>
-    public EventHandler<Point> WindowLocationChangedHandler
+    public EventHandler<Point>? WindowLocationChangedHandler
     {
         get
         {
@@ -1305,7 +1311,7 @@ public partial class TauriWindow
     /// Set assigns a new handler to the event.
     /// </summary>
     /// <seealso cref="WindowSizeChanged"/>
-    public EventHandler<Size> WindowSizeChangedHandler
+    public EventHandler<Size>? WindowSizeChangedHandler
     {
         get
         {
@@ -1322,7 +1328,7 @@ public partial class TauriWindow
     /// Set assigns a new handler to the event.
     /// </summary>
     /// <seealso cref="WindowFocusIn"/>
-    public EventHandler WindowFocusInHandler
+    public EventHandler? WindowFocusInHandler
     {
         get
         {
@@ -1339,7 +1345,7 @@ public partial class TauriWindow
     /// Set assigns a new handler to the event.
     /// </summary>
     /// <seealso cref="WindowFocusOut"/>
-    public EventHandler WindowFocusOutHandler
+    public EventHandler? WindowFocusOutHandler
     {
         get
         {
@@ -1356,7 +1362,7 @@ public partial class TauriWindow
     /// Set assigns a new handler to the event.
     /// </summary>
     /// <seealso cref="WindowMaximized"/>
-    public EventHandler WindowMaximizedHandler
+    public EventHandler? WindowMaximizedHandler
     {
         get
         {
@@ -1373,7 +1379,7 @@ public partial class TauriWindow
     /// Set assigns a new handler to the event.
     /// </summary>
     /// <seealso cref="WindowRestored"/>
-    public EventHandler WindowRestoredHandler
+    public EventHandler? WindowRestoredHandler
     {
         get
         {
@@ -1390,7 +1396,7 @@ public partial class TauriWindow
     /// Set assigns a new handler to the event.
     /// </summary>
     /// <seealso cref="WindowMinimized"/>
-    public EventHandler WindowMinimizedHandler
+    public EventHandler? WindowMinimizedHandler
     {
         get
         {
