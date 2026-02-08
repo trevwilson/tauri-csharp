@@ -133,13 +133,17 @@ internal struct WryWindowConfig
 {
     public uint Width;
     public uint Height;
-    public IntPtr Title; // *const c_char
+    public IntPtr Title;   // *const c_char
+    public IntPtr Parent;  // *mut WryWindowHandle (optional, null = no parent)
+    public bool Modal;     // If true and parent set, creates modal dialog
 
     public static WryWindowConfig CreateDefault() => new()
     {
         Width = 800,
         Height = 600,
         Title = IntPtr.Zero,
+        Parent = IntPtr.Zero,
+        Modal = false,
     };
 }
 

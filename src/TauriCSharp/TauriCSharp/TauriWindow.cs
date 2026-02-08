@@ -60,6 +60,10 @@ public partial class TauriWindow
     private readonly int _managedThreadId;
     private readonly ILogger? _logger;
 
+    // Parent/modal window support
+    private TauriWindow? _parentWindow;
+    private bool _isModal;
+
     //There can only be 1 message loop for all windows.
     private static bool _messageLoopIsStarted = false;
 
@@ -2245,6 +2249,34 @@ public partial class TauriWindow
     {
         Log($".SetTitle({title})");
         Title = title;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets a parent window. The child window stays above the parent and
+    /// is associated with it by the window manager (transient_for on GTK,
+    /// owner window on Windows, parent window on macOS).
+    /// Must be called before <see cref="WaitForClose"/> or <see cref="TauriApp.Run"/>.
+    /// </summary>
+    /// <param name="parent">The parent window.</param>
+    public TauriWindow SetParent(TauriWindow parent)
+    {
+        _parentWindow = parent;
+        return this;
+    }
+
+    /// <summary>
+    /// Creates this window as a modal dialog of the specified parent.
+    /// The parent window's input is blocked while this window is open.
+    /// On Linux, uses GTK modal. On Windows, disables the parent window.
+    /// The parent is automatically re-enabled when this window closes.
+    /// Must be called before <see cref="WaitForClose"/> or <see cref="TauriApp.Run"/>.
+    /// </summary>
+    /// <param name="parent">The parent window to block.</param>
+    public TauriWindow SetModal(TauriWindow parent)
+    {
+        _parentWindow = parent;
+        _isModal = true;
         return this;
     }
 

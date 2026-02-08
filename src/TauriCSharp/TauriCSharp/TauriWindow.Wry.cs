@@ -208,6 +208,13 @@ public partial class TauriWindow : IDisposable
             config.Title = Marshal.StringToCoTaskMemUTF8(p.Title);
         }
 
+        // Parent/modal window support
+        if (_parentWindow != null && _parentWindow._wryWindow != IntPtr.Zero)
+        {
+            config.Parent = _parentWindow._wryWindow;
+            config.Modal = _isModal;
+        }
+
         return config;
     }
 
@@ -513,11 +520,13 @@ public partial class TauriWindow : IDisposable
                     if (preventClose == 0)
                     {
                         _shouldExit = true;
+                        RestoreModalParent();
                     }
                     break;
 
                 case "window-destroyed":
                     _shouldExit = true;
+                    RestoreModalParent();
                     break;
 
                 case "window-resized":
@@ -627,6 +636,19 @@ public partial class TauriWindow : IDisposable
     /// Gets whether this window should exit (used by TauriApp to know when to unregister).
     /// </summary>
     internal bool ShouldExitFromApp => _shouldExit;
+
+    /// <summary>
+    /// Re-enables the parent window when a modal child closes.
+    /// </summary>
+    private void RestoreModalParent()
+    {
+        if (_isModal && _parentWindow != null && _parentWindow._wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowSetEnabled(_parentWindow._wryWindow, true);
+            WryInterop.WindowFocus(_parentWindow._wryWindow);
+            _parentWindow = null;
+        }
+    }
 
     // ========================================================================
     // IDisposable implementation

@@ -244,6 +244,14 @@ class Program
                 HandleOpenChildWindow();
                 break;
 
+            case "open-modal-window":
+                HandleOpenModalWindow();
+                break;
+
+            case "broadcast-message":
+                HandleBroadcastMessage();
+                break;
+
             default:
                 Log($"Unknown message: {message}");
                 _window.SendWebMessage($"unknown:{message}");
@@ -593,11 +601,11 @@ class Program
         {
             Log("Opening child window via TauriApp...");
 
-            // For this test, we create a simple child window using TauriApp
             var app = TauriApp.Instance;
             var child = app.CreateWindow()
                 .SetTitle("Child Window")
                 .SetSize(640, 480)
+                .SetParent(_window)
                 .RegisterCustomSchemeHandler("app", OnCustomScheme);
 
             child.StartUrl = "app://localhost/index.html";
@@ -611,6 +619,57 @@ class Program
             Log($"Child window error: {ex.Message}");
             _window.SendWebMessage($"error:{ex.Message}");
             RecordTest("Open child window", false);
+        }
+    }
+
+    static void HandleOpenModalWindow()
+    {
+        if (_window == null) return;
+
+        try
+        {
+            Log("Opening modal dialog via TauriApp...");
+
+            var app = TauriApp.Instance;
+            var modal = app.CreateWindow()
+                .SetTitle("Modal Dialog")
+                .SetSize(400, 300)
+                .SetModal(_window)
+                .RegisterCustomSchemeHandler("app", OnCustomScheme);
+
+            modal.StartUrl = "app://localhost/index.html";
+            app.InitializeWindow(modal);
+
+            _window.SendWebMessage("modal-window:opened");
+            RecordTest("Open modal dialog", true);
+        }
+        catch (Exception ex)
+        {
+            Log($"Modal window error: {ex.Message}");
+            _window.SendWebMessage($"error:{ex.Message}");
+            RecordTest("Open modal dialog", false);
+        }
+    }
+
+    static void HandleBroadcastMessage()
+    {
+        if (_window == null) return;
+
+        try
+        {
+            var app = TauriApp.Instance;
+            var windowCount = app.Windows.Count;
+            app.Broadcast("broadcast:hello from main!");
+
+            Log($"Broadcast sent to {windowCount} window(s)");
+            _window.SendWebMessage($"broadcast-sent:{windowCount}");
+            RecordTest("Broadcast message", true);
+        }
+        catch (Exception ex)
+        {
+            Log($"Broadcast error: {ex.Message}");
+            _window.SendWebMessage($"error:{ex.Message}");
+            RecordTest("Broadcast message", false);
         }
     }
 

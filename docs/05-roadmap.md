@@ -172,8 +172,8 @@ Velox (Swift Tauri port) uses these crates beyond wry/tao:
   - [x] `TauriApp.Run()` for multi-window event loop with per-window event routing
   - [x] Dynamic window creation after `Run()` via `TauriApp.InitializeWindow()`
   - [x] Child window event routing when main window uses `WaitForClose()`
-  - [ ] Window relationships (parent, modal)
-  - [ ] Cross-window communication
+  - [x] Window relationships: `SetParent()` (transient_for/owner) and `SetModal()` (blocks parent)
+  - [x] Cross-window communication: `TauriApp.SendToWindow()`, `Broadcast()`, `GetWindow()`, `Windows`
 
 ### Deliverable
 Feature-rich desktop framework competitive with Tauri and Velox (minus mobile).

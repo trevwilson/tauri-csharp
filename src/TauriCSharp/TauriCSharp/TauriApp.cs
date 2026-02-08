@@ -233,6 +233,55 @@ public class TauriApp : IDisposable
         }
     }
 
+    // ========================================================================
+    // Cross-Window Communication
+    // ========================================================================
+
+    /// <summary>
+    /// Gets a registered window by its native window identifier.
+    /// </summary>
+    /// <param name="windowId">The native window identifier string.</param>
+    /// <returns>The window if found, null otherwise.</returns>
+    public TauriWindow? GetWindow(string windowId)
+    {
+        _windows.TryGetValue(windowId, out var window);
+        return window;
+    }
+
+    /// <summary>
+    /// Gets all registered windows as a read-only snapshot.
+    /// </summary>
+    public IReadOnlyDictionary<string, TauriWindow> Windows =>
+        new Dictionary<string, TauriWindow>(_windows);
+
+    /// <summary>
+    /// Sends a web message to a specific window's webview.
+    /// </summary>
+    /// <param name="windowId">The target window's native identifier.</param>
+    /// <param name="message">The message to send.</param>
+    /// <returns>True if the window was found and the message was sent.</returns>
+    public bool SendToWindow(string windowId, string message)
+    {
+        if (_windows.TryGetValue(windowId, out var window))
+        {
+            window.SendWebMessage(message);
+            return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// Broadcasts a web message to all registered windows' webviews.
+    /// </summary>
+    /// <param name="message">The message to send to all windows.</param>
+    public void Broadcast(string message)
+    {
+        foreach (var window in _windows.Values)
+        {
+            window.SendWebMessage(message);
+        }
+    }
+
     public void Dispose()
     {
         if (_disposed) return;

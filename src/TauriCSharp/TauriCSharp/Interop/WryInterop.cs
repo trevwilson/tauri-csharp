@@ -498,6 +498,15 @@ internal static partial class WryInterop
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool WindowClearIcon(IntPtr window);
 
+    /// <summary>
+    /// Enable or disable a window (blocks/unblocks user interaction).
+    /// Used for modal dialog support. Windows: set_enable, Linux: set_sensitive, macOS: no-op.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_enabled")]
+    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetEnabled(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool enabled);
+
     // ==========================================================================
     // Webview Creation/Destruction
     // ==========================================================================

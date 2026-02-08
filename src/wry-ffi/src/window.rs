@@ -29,6 +29,9 @@ pub extern "C" fn wry_window_build(
     let event_loop = unsafe { &mut *event_loop };
     let cfg = unsafe { config.as_ref().copied().unwrap_or_default() };
 
+    let has_parent = !cfg.parent.is_null();
+    let is_modal = cfg.modal && has_parent;
+
     let build_result = catch_unwind(AssertUnwindSafe(|| {
         let mut builder = TaoWindowBuilder::new();
 
@@ -41,11 +44,22 @@ pub extern "C" fn wry_window_build(
                 builder.with_inner_size(LogicalSize::new(cfg.width as f64, cfg.height as f64));
         }
 
+        // Set parent window relationship (platform-specific)
+        if has_parent {
+            let parent_handle = unsafe { &*cfg.parent };
+            builder = set_parent_window(builder, &parent_handle.window);
+        }
+
         builder.build(&event_loop.event_loop)
     }));
 
     match build_result {
         Ok(Ok(window)) => {
+            // Set modal behavior after window creation (platform-specific)
+            if is_modal {
+                set_modal_behavior(&window, cfg.parent);
+            }
+
             let id_string = format!("{:?}", window.id());
             let identifier = CString::new(id_string).unwrap_or_else(|_| {
                 CString::new("wry-window").expect("static string has no nulls")
@@ -727,6 +741,44 @@ pub extern "C" fn wry_window_start_resize_dragging(
 }
 
 // ============================================================================
+// Window Enable/Disable (for modal dialogs)
+// ============================================================================
+
+/// Enable or disable a window (blocks/unblocks user interaction).
+///
+/// On Windows, uses `set_enable`. On Linux, uses `set_sensitive`.
+/// On macOS, this is a no-op.
+#[no_mangle]
+pub extern "C" fn wry_window_set_enabled(window: *mut WryWindowHandle, enabled: bool) -> bool {
+    #[cfg(target_os = "windows")]
+    {
+        use tao::platform::windows::WindowExtWindows;
+        return with_window(window, |w| {
+            w.set_enable(enabled);
+            true
+        })
+        .unwrap_or(false);
+    }
+
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::prelude::WidgetExt;
+        use tao::platform::unix::WindowExtUnix;
+        return with_window(window, |w| {
+            w.gtk_window().set_sensitive(enabled);
+            true
+        })
+        .unwrap_or(false);
+    }
+
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        let _ = (window, enabled);
+        false
+    }
+}
+
+// ============================================================================
 // Window Icon
 // ============================================================================
 
@@ -798,4 +850,65 @@ pub extern "C" fn wry_window_clear_icon(window: *mut WryWindowHandle) -> bool {
         true
     })
     .unwrap_or(false)
+}
+
+// ============================================================================
+// Parent/Modal Helpers (platform-specific)
+// ============================================================================
+
+/// Sets parent window relationship on the builder (platform-specific).
+fn set_parent_window(
+    builder: TaoWindowBuilder,
+    parent: &tao::window::Window,
+) -> TaoWindowBuilder {
+    #[cfg(target_os = "linux")]
+    {
+        use tao::platform::unix::{WindowBuilderExtUnix, WindowExtUnix};
+        return builder.with_transient_for(parent.gtk_window());
+    }
+
+    #[cfg(target_os = "windows")]
+    {
+        use tao::platform::windows::{WindowBuilderExtWindows, WindowExtWindows};
+        return builder.with_owner_window(parent.hwnd());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        use tao::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
+        return builder.with_parent_window(parent.ns_window());
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    {
+        let _ = parent;
+        builder
+    }
+}
+
+/// Sets modal behavior after window creation (platform-specific).
+fn set_modal_behavior(window: &tao::window::Window, _parent: *mut WryWindowHandle) {
+    // Linux: GTK set_modal blocks interaction with the transient parent.
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::prelude::GtkWindowExt;
+        use tao::platform::unix::WindowExtUnix;
+        window.gtk_window().set_modal(true);
+    }
+
+    // Windows: Disable the parent window to create modal behavior.
+    // The C# layer re-enables the parent when the modal closes.
+    #[cfg(target_os = "windows")]
+    {
+        use tao::platform::windows::WindowExtWindows;
+        if !_parent.is_null() {
+            let parent_handle = unsafe { &*_parent };
+            parent_handle.window.set_enable(false);
+        }
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        let _ = (window, _parent);
+    }
 }

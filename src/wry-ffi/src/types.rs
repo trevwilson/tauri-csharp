@@ -131,6 +131,10 @@ pub struct WryWindowConfig {
     pub width: u32,
     pub height: u32,
     pub title: *const c_char,
+    /// Optional parent window handle. If non-null, creates a child/owned window.
+    pub parent: *mut WryWindowHandle,
+    /// If true and parent is set, creates a modal dialog (blocks parent interaction).
+    pub modal: bool,
 }
 
 /// Callback for IPC messages from JavaScript

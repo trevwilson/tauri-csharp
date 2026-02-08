@@ -152,6 +152,7 @@ pub use window::{
     wry_window_set_icon_rgba,
     wry_window_set_icon_file,
     wry_window_clear_icon,
+    wry_window_set_enabled,
 };
 
 // ============================================================================
