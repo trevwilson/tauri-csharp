@@ -140,31 +140,38 @@ Velox (Swift Tauri port) uses these crates beyond wry/tao:
   - [ ] TauriMenu builder API
   - Note: Returns no-op stubs on Linux/Windows
 
-- [ ] **4.4 Monitor/Display Info (tao built-in)**
-  - [ ] Implement FFI: `wry_get_monitors`, `wry_get_primary_monitor`
-  - [ ] Implement FFI: `wry_window_get_scale_factor` (DPI)
-  - [ ] C# P/Invoke bindings
-  - [ ] TauriWindow.GetMonitors(), ScreenDpi property
+- [x] **4.4 Monitor/Display Info (tao built-in)**
+  - [x] Rust FFI already existed: `wry_window_current_monitor`, `wry_window_primary_monitor`, `wry_window_available_monitors`, `wry_window_scale_factor`
+  - [x] C# P/Invoke bindings (already in WryInterop.cs)
+  - [x] Wire `Monitors`, `MainMonitor`, `CurrentMonitor`, `ScreenDpi` properties via JSON parsing
+  - [x] Add `Name` property to `Monitor` struct
 
-- [ ] **4.5 Window Icon (tao built-in)**
-  - [ ] Implement FFI: `wry_window_set_icon_file`, `wry_window_set_icon_rgba`
-  - [ ] C# P/Invoke bindings
-  - [ ] TauriWindow.SetIcon() method
+- [x] **4.5 Window Icon (tao built-in)**
+  - [x] Add `image` crate (PNG/ICO/JPEG loading)
+  - [x] Implement FFI: `wry_window_set_icon_file`, `wry_window_set_icon_rgba`, `wry_window_clear_icon`
+  - [x] C# P/Invoke bindings
+  - [x] `TauriWindow.SetIcon()`, `ClearIcon()`, `IconFile` setter
 
-- [ ] **4.6 Notifications**
-  - [ ] Evaluate: `notify-rust` crate or platform-native
-  - [ ] Implement FFI: `wry_notification_show`
-  - [ ] C# P/Invoke bindings
-  - [ ] TauriWindow.SendNotification() (fix current stub)
+- [x] **4.6 Notifications**
+  - [x] Add `notify-rust` crate (D-Bus on Linux, native on Windows/macOS)
+  - [x] Implement FFI: `wry_notification_show` with timeout and urgency support
+  - [x] C# P/Invoke bindings
+  - [x] Public `Notifications.Show()` static API (follows `Dialogs` pattern)
+  - Note: Requires notification daemon; fails gracefully on WSL2
 
-- [ ] **4.7 Global Shortcuts (tao built-in)**
-  - [ ] Implement FFI: `wry_register_global_shortcut`, `wry_unregister_global_shortcut`
-  - [ ] Implement shortcut triggered callback
-  - [ ] C# P/Invoke bindings
-  - [ ] TauriApp.RegisterGlobalShortcut()
+- [x] **4.7 Global Shortcuts (global-hotkey crate)**
+  - [x] Add `global-hotkey` crate
+  - [x] Implement FFI: `wry_shortcut_register`, `wry_shortcut_unregister`, `wry_shortcut_unregister_all`
+  - [x] Deliver shortcut events via JSON event loop polling
+  - [x] C# P/Invoke bindings
+  - [x] Public `GlobalShortcuts` static class with callback dispatch
+  - Note: On WSL2/Wayland, only captures keys when X11 apps have focus
 
-- [ ] **4.8 Multi-Window**
-  - [ ] TauriApp managing multiple windows
+- [x] **4.8 Multi-Window**
+  - [x] `TauriApp` singleton managing multiple windows via `ConcurrentDictionary`
+  - [x] `TauriApp.Run()` for multi-window event loop with per-window event routing
+  - [x] Dynamic window creation after `Run()` via `TauriApp.InitializeWindow()`
+  - [x] Child window event routing when main window uses `WaitForClose()`
   - [ ] Window relationships (parent, modal)
   - [ ] Cross-window communication
 
@@ -287,7 +294,9 @@ Cross-platform framework: Windows, macOS, Linux, iOS, Android.
 | rfd | 0.14+ | MIT | File dialogs (open/save/folder/message) |
 | tray-icon | 0.21+ | Apache 2.0 | System tray |
 | muda | 0.17+ | Apache 2.0 | Native menus |
-| notify-rust | TBD | MIT/Apache 2.0 | System notifications (optional) |
+| notify-rust | 4 | MIT/Apache 2.0 | Desktop notifications (D-Bus/native) |
+| global-hotkey | 0.6 | Apache 2.0 | System-wide keyboard shortcuts |
+| image | 0.25 | MIT | Icon loading (PNG/ICO/JPEG → RGBA) |
 
 Reference: [Velox runtime-wry-ffi](https://github.com/velox-apps/velox) uses same crate stack.
 

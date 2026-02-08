@@ -133,8 +133,10 @@ public partial class TauriWindow
     {
         get
         {
-            // Monitor enumeration not yet supported in wry-ffi
-            throw new NotSupportedException("Monitor enumeration is not yet supported with the wry-ffi backend.");
+            if (_nativeInstance == IntPtr.Zero)
+                throw new ApplicationException("The TauriCSharp window is not initialized yet");
+
+            return ParseMonitorsFromNative();
         }
     }
 
@@ -152,7 +154,23 @@ public partial class TauriWindow
             if (_nativeInstance == IntPtr.Zero)
                 throw new ApplicationException("The TauriCSharp window hasn't been initialized yet.");
 
-            return Monitors[0];
+            var monitor = ParseSingleMonitorFromNative(WryInterop.WindowPrimaryMonitor(_wryWindow));
+            return monitor ?? Monitors[0];
+        }
+    }
+
+    /// <summary>
+    /// Gets information about the monitor on which the window is currently displayed.
+    /// </summary>
+    /// <exception cref="ApplicationException">Thrown when the window hasn't been initialized yet.</exception>
+    public Monitor? CurrentMonitor
+    {
+        get
+        {
+            if (_nativeInstance == IntPtr.Zero)
+                throw new ApplicationException("The TauriCSharp window hasn't been initialized yet.");
+
+            return ParseSingleMonitorFromNative(WryInterop.WindowCurrentMonitor(_wryWindow));
         }
     }
 
@@ -162,12 +180,21 @@ public partial class TauriWindow
     /// <exception cref="ApplicationException">
     /// An ApplicationException is thrown if the window hasn't been initialized yet.
     /// </exception>
-    public static uint ScreenDpi
+    /// <summary>
+    /// Gets the DPI for the current monitor. Computes from the window's scale factor.
+    /// Returns 96 (standard DPI) if the window is not initialized.
+    /// </summary>
+    public uint ScreenDpi
     {
         get
         {
-            // Screen DPI not yet supported in wry-ffi, return a reasonable default
-            return 96; // Standard DPI
+            if (_nativeInstance == IntPtr.Zero)
+                return 96;
+
+            if (WryInterop.WindowScaleFactor(_wryWindow, out var scaleFactor))
+                return (uint)(96 * scaleFactor);
+
+            return 96;
         }
     }
 
@@ -607,10 +634,47 @@ public partial class TauriWindow
 
                 if (_nativeInstance == IntPtr.Zero)
                     _startupParameters.WindowIconFile = _iconFile;
-                else if (_logger != null)
-                    TauriLog.IconFileNotSupported(_logger, LogTitle);
+                else if (_iconFile != null)
+                    SetIconFileWry(_iconFile);
             }
         }
+    }
+
+    /// <summary>
+    /// Sets the window icon from raw RGBA pixel data.
+    /// </summary>
+    /// <param name="rgbaData">RGBA pixel data (4 bytes per pixel).</param>
+    /// <param name="width">Icon width in pixels.</param>
+    /// <param name="height">Icon height in pixels.</param>
+    /// <returns>True if the icon was set successfully.</returns>
+    public bool SetIcon(byte[] rgbaData, int width, int height)
+    {
+        if (_nativeInstance == IntPtr.Zero)
+            throw new ApplicationException("SetIcon cannot be called until the window is initialized.");
+
+        var pinned = System.Runtime.InteropServices.GCHandle.Alloc(rgbaData, System.Runtime.InteropServices.GCHandleType.Pinned);
+        try
+        {
+            return WryInterop.WindowSetIconRgba(
+                _wryWindow,
+                pinned.AddrOfPinnedObject(),
+                (nuint)rgbaData.Length,
+                (uint)width,
+                (uint)height);
+        }
+        finally
+        {
+            pinned.Free();
+        }
+    }
+
+    /// <summary>
+    /// Clears the window icon (restores OS default).
+    /// </summary>
+    public void ClearIcon()
+    {
+        if (_nativeInstance != IntPtr.Zero)
+            WryInterop.WindowClearIcon(_wryWindow);
     }
 
     /// <summary>
@@ -1394,11 +1458,19 @@ public partial class TauriWindow
     /// <param name="logger">Optional logger for structured logging. If null, logging is disabled.</param>
     /// <param name="parent">The parent TauriWindow. This is optional and defaults to null.</param>
     public TauriWindow(ILogger? logger = null, TauriWindow? parent = null)
+        : this(logger, parent, app: null)
+    {
+    }
+
+    /// <summary>
+    /// Internal constructor used by TauriApp for multi-window support.
+    /// </summary>
+    internal TauriWindow(ILogger? logger, TauriWindow? parent = null, TauriApp? app = null)
     {
         _logger = logger;
         _dotNetParent = parent;
+        _ownerApp = app;
         _managedThreadId = Environment.CurrentManagedThreadId;
-
 
         //This only has to be done once
         if (_nativeType == IntPtr.Zero)
@@ -2554,7 +2626,7 @@ public partial class TauriWindow
         Log($".SendNotification({title}, {body})");
         if (_nativeInstance == IntPtr.Zero)
             throw new ApplicationException("SendNotification cannot be called until after the TauriCSharp window is initialized.");
-        throw new NotSupportedException("Notifications not yet supported with wry-ffi backend");
+        Notifications.Show(title, body);
     }
 
     /// <summary>

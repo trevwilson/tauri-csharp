@@ -4,7 +4,8 @@
 // Updated for the new separate event loop, window, and webview architecture.
 
 using System.Drawing;
-using TauriCSharp.Handles;
+using System.Runtime.InteropServices;
+using System.Text.Json;
 using TauriCSharp.Interop;
 
 namespace TauriCSharp;
@@ -251,8 +252,92 @@ public partial class TauriWindow
         }
     }
 
+    // ========================================================================
+    // Monitor JSON Parsing
+    // ========================================================================
+
+    /// <summary>
+    /// Parses the available monitors JSON array from the native FFI.
+    /// </summary>
+    private IReadOnlyList<Monitor> ParseMonitorsFromNative()
+    {
+        var jsonPtr = WryInterop.WindowAvailableMonitors(_wryWindow);
+        if (jsonPtr == IntPtr.Zero)
+            return [];
+
+        var json = Marshal.PtrToStringUTF8(jsonPtr);
+        if (string.IsNullOrEmpty(json))
+            return [];
+
+        using var doc = JsonDocument.Parse(json);
+        var monitors = new List<Monitor>();
+
+        foreach (var element in doc.RootElement.EnumerateArray())
+        {
+            monitors.Add(ParseMonitorFromJson(element));
+        }
+
+        return monitors;
+    }
+
+    /// <summary>
+    /// Parses a single monitor JSON from a native FFI pointer.
+    /// </summary>
+    private static Monitor? ParseSingleMonitorFromNative(IntPtr jsonPtr)
+    {
+        if (jsonPtr == IntPtr.Zero)
+            return null;
+
+        var json = Marshal.PtrToStringUTF8(jsonPtr);
+        if (string.IsNullOrEmpty(json))
+            return null;
+
+        using var doc = JsonDocument.Parse(json);
+        return ParseMonitorFromJson(doc.RootElement);
+    }
+
+    /// <summary>
+    /// Parses a Monitor from a JSON element matching the Rust monitor_to_json format:
+    /// { "name": "...", "scale_factor": 1.0, "position": { "x": 0, "y": 0 }, "size": { "width": 1920, "height": 1080 } }
+    /// </summary>
+    private static Monitor ParseMonitorFromJson(JsonElement element)
+    {
+        var name = element.TryGetProperty("name", out var nameEl) ? nameEl.GetString() ?? "" : "";
+        var scale = element.TryGetProperty("scale_factor", out var scaleEl) ? scaleEl.GetDouble() : 1.0;
+
+        int x = 0, y = 0, width = 0, height = 0;
+        if (element.TryGetProperty("position", out var posEl))
+        {
+            x = posEl.TryGetProperty("x", out var xEl) ? (int)xEl.GetDouble() : 0;
+            y = posEl.TryGetProperty("y", out var yEl) ? (int)yEl.GetDouble() : 0;
+        }
+        if (element.TryGetProperty("size", out var sizeEl))
+        {
+            width = sizeEl.TryGetProperty("width", out var wEl) ? (int)wEl.GetDouble() : 0;
+            height = sizeEl.TryGetProperty("height", out var hEl) ? (int)hEl.GetDouble() : 0;
+        }
+
+        var monitorArea = new Rectangle(x, y, width, height);
+        // Work area is not provided by tao's monitor_to_json — use full area as approximation
+        return new Monitor(name, monitorArea, monitorArea, scale);
+    }
+
+    // ========================================================================
+    // Window Icon
+    // ========================================================================
+
+    /// <summary>
+    /// Sets the window icon from a file path using wry-ffi.
+    /// </summary>
+    private void SetIconFileWry(string path)
+    {
+        if (_wryWindow != IntPtr.Zero)
+        {
+            WryInterop.WindowSetIconFile(_wryWindow, path);
+        }
+    }
+
     // Platform-specific features that need platform-specific implementations
-    private static void SetIconFileNotSupported() => ThrowNotSupported("Window icon");
     private static void GetTransparentNotSupported() => ThrowNotSupported("Transparent window state query");
     private static void GetContextMenuEnabledNotSupported() => ThrowNotSupported("Context menu enabled state");
     private static void SetContextMenuEnabledNotSupported() => ThrowNotSupported("Context menu enabled");
@@ -264,10 +349,6 @@ public partial class TauriWindow
     private static void GetTopmostNotSupported() => ThrowNotSupported("Topmost state query");
     private static void SetTopmostNotSupported() => ThrowNotSupported("Topmost");
 
-    // Monitor/DPI features
-    private static void GetMonitorsNotSupported() => ThrowNotSupported("Monitor enumeration");
-    private static void GetScreenDpiNotSupported() => ThrowNotSupported("Screen DPI");
-
     // Dialog features
     private static void ShowOpenFileNotSupported() => ThrowNotSupported("Open file dialog");
     private static void ShowOpenFolderNotSupported() => ThrowNotSupported("Open folder dialog");
@@ -278,7 +359,6 @@ public partial class TauriWindow
     private static void GetWindowHandleNotSupported() => ThrowNotSupported("Native window handle");
     private static void SetWebView2PathNotSupported() => ThrowNotSupported("WebView2 runtime path");
     private static void ClearBrowserAutoFillNotSupported() => ThrowNotSupported("Browser autofill clearing");
-    private static void ShowNotificationNotSupported() => ThrowNotSupported("Notifications");
 
     // Browser settings that wry doesn't expose at runtime
     private static void GetMediaAutoplayNotSupported() => ThrowNotSupported("Media autoplay state query");

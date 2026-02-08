@@ -8,7 +8,7 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::ptr;
 
 use tao::dpi::{LogicalPosition, LogicalSize, Size};
-use tao::window::{Fullscreen, WindowBuilder as TaoWindowBuilder};
+use tao::window::{Fullscreen, Icon, WindowBuilder as TaoWindowBuilder};
 
 use crate::helpers::*;
 use crate::types::*;
@@ -724,4 +724,78 @@ pub extern "C" fn wry_window_start_resize_dragging(
 ) -> bool {
     let tao_direction = tao_resize_direction_from_ffi(direction);
     with_window(window, |w| w.drag_resize_window(tao_direction).is_ok()).unwrap_or(false)
+}
+
+// ============================================================================
+// Window Icon
+// ============================================================================
+
+/// Set window icon from raw RGBA pixel data.
+#[no_mangle]
+pub extern "C" fn wry_window_set_icon_rgba(
+    window: *mut WryWindowHandle,
+    rgba_data: *const u8,
+    rgba_len: usize,
+    width: u32,
+    height: u32,
+) -> bool {
+    if rgba_data.is_null() || rgba_len == 0 {
+        return false;
+    }
+
+    let data = unsafe { std::slice::from_raw_parts(rgba_data, rgba_len) };
+
+    guard_panic_bool(|| {
+        let icon = Icon::from_rgba(data.to_vec(), width, height)
+            .map_err(|e| log::error!("Failed to create icon from RGBA: {e}"))
+            .ok();
+
+        with_window(window, |w| {
+            w.set_window_icon(icon);
+            true
+        })
+        .unwrap_or(false)
+    })
+}
+
+/// Set window icon from an image file (PNG, ICO, JPEG).
+#[no_mangle]
+pub extern "C" fn wry_window_set_icon_file(
+    window: *mut WryWindowHandle,
+    path: *const c_char,
+) -> bool {
+    let Some(path_str) = opt_cstring(path) else {
+        return false;
+    };
+
+    guard_panic_bool(|| {
+        let img = image::open(&path_str)
+            .map_err(|e| log::error!("Failed to load icon file '{}': {e}", path_str))
+            .ok();
+        let Some(img) = img else {
+            return false;
+        };
+
+        let rgba = img.into_rgba8();
+        let (w, h) = rgba.dimensions();
+        let icon = Icon::from_rgba(rgba.into_raw(), w, h)
+            .map_err(|e| log::error!("Failed to create icon: {e}"))
+            .ok();
+
+        with_window(window, |win| {
+            win.set_window_icon(icon);
+            true
+        })
+        .unwrap_or(false)
+    })
+}
+
+/// Clear the window icon.
+#[no_mangle]
+pub extern "C" fn wry_window_clear_icon(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| {
+        w.set_window_icon(None);
+        true
+    })
+    .unwrap_or(false)
 }

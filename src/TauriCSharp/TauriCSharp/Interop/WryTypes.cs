@@ -382,6 +382,33 @@ internal struct WryPromptDialogResult
 }
 
 // ============================================================================
+// Notification Types
+// ============================================================================
+
+/// <summary>
+/// Notification options matching Rust WryNotificationOptions.
+/// </summary>
+[StructLayout(LayoutKind.Sequential)]
+internal struct WryNotificationOptions
+{
+    public IntPtr Title;       // *const c_char
+    public IntPtr Body;        // *const c_char
+    public IntPtr Icon;        // *const c_char (optional)
+    public int TimeoutMs;      // -1=default, 0=never, >0=ms
+    public WryNotificationUrgency Urgency;
+}
+
+/// <summary>
+/// Notification urgency matching Rust WryNotificationUrgency.
+/// </summary>
+internal enum WryNotificationUrgency
+{
+    Low = 0,
+    Normal = 1,
+    Critical = 2,
+}
+
+// ============================================================================
 // Error Handling (legacy - kept for compatibility)
 // ============================================================================
 

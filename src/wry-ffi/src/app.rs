@@ -259,6 +259,21 @@ pub extern "C" fn wry_event_loop_pump(
                 } else {
                     *control_flow = ControlFlow::Exit;
                 }
+
+                // Poll for global hotkey events and deliver them through the callback
+                while let Some(shortcut_id) = crate::shortcuts::poll_hotkey_event() {
+                    let hotkey_json = format!(
+                        r#"{{"type":"global-shortcut","id":{}}}"#,
+                        shortcut_id
+                    );
+                    if let Ok(c_hotkey) = CString::new(hotkey_json) {
+                        let flow = cb(c_hotkey.as_ptr(), user_data);
+                        if matches!(flow, WryEventLoopControlFlow::Exit) {
+                            *control_flow = ControlFlow::Exit;
+                            return;
+                        }
+                    }
+                }
             } else {
                 *control_flow = ControlFlow::Exit;
             }

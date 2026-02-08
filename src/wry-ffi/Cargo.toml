@@ -24,6 +24,15 @@ url = "2"
 rfd = "0.14"
 tinyfiledialogs = "3.9"
 
+# Image loading (for window icons)
+image = { version = "0.25", default-features = false, features = ["png", "ico", "jpeg"] }
+
+# Notifications
+notify-rust = "4"
+
+# Global shortcuts
+global-hotkey = "0.6"
+
 # System tray (cross-platform, but menu features vary)
 tray-icon = { version = "0.21", default-features = false, features = ["serde"] }
 

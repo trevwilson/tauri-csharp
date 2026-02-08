@@ -51,11 +51,17 @@ public partial class TauriWindow : IDisposable
     /// Callback registry for pinning delegates to prevent GC collection.
     /// </summary>
     private static readonly WryCallbackRegistry _callbackRegistry = new();
+    internal static WryCallbackRegistry CallbackRegistryStatic => _callbackRegistry;
 
     /// <summary>
     /// Event loop callback - pinned for lifetime of event loop.
     /// </summary>
     private static WryEventLoopCallback? _eventLoopCallback;
+
+    /// <summary>
+    /// The TauriApp that owns this window (null for single-window mode).
+    /// </summary>
+    private TauriApp? _ownerApp;
 
     /// <summary>
     /// Indicates if we're already disposed.
@@ -127,6 +133,16 @@ public partial class TauriWindow : IDisposable
             return _eventLoop;
         }
     }
+
+    /// <summary>
+    /// Static accessor for event loop (used by TauriApp).
+    /// </summary>
+    internal static WryEventLoopHandle EnsureEventLoopStatic() => EnsureEventLoop();
+
+    /// <summary>
+    /// Static accessor for event loop proxy (used by TauriApp).
+    /// </summary>
+    internal static WryEventLoopProxyHandle? EventLoopProxyStatic => _eventLoopProxy;
 
     /// <summary>
     /// Creates the window and webview.
@@ -484,7 +500,11 @@ public partial class TauriWindow : IDisposable
 
             // Only process events for our window (or global events)
             if (windowId != null && _windowIdentifier != null && windowId != _windowIdentifier)
+            {
+                // Route to TauriApp for child/other windows
+                TauriApp.TryRouteEvent(windowId, json, eventType);
                 return;
+            }
 
             switch (eventType)
             {
@@ -528,6 +548,14 @@ public partial class TauriWindow : IDisposable
                     }
                     break;
 
+                case "global-shortcut":
+                    if (root.TryGetProperty("id", out var shortcutIdEl))
+                    {
+                        var shortcutId = (uint)shortcutIdEl.GetInt32();
+                        GlobalShortcuts.DispatchShortcutEvent(shortcutId);
+                    }
+                    break;
+
                 case "user-exit":
                     _shouldExit = true;
                     break;
@@ -558,6 +586,47 @@ public partial class TauriWindow : IDisposable
             if (_logger != null) TauriLog.JsonParseError(_logger, LogTitle, ex.Message);
         }
     }
+
+    // ========================================================================
+    // Multi-Window Support (TauriApp integration)
+    // ========================================================================
+
+    /// <summary>
+    /// Initializes this window for use with TauriApp (multi-window mode).
+    /// Creates the window and webview without starting the event loop.
+    /// </summary>
+    internal void InitializeForApp()
+    {
+        if (_nativeInstance != IntPtr.Zero)
+            return; // Already initialized
+
+        var errors = _startupParameters.GetParamErrors();
+        if (errors.Count > 0)
+            throw new TauriInitializationException("Window startup parameters are not valid.", errors);
+
+        OnWindowCreating();
+        CreateWryWindow();
+        OnWindowCreated();
+
+        // Register with the app
+        if (_ownerApp != null && _windowIdentifier != null)
+        {
+            _ownerApp.RegisterWindow(_windowIdentifier, this);
+        }
+    }
+
+    /// <summary>
+    /// Dispatches a JSON event from TauriApp to this window.
+    /// </summary>
+    internal void DispatchEventFromApp(string json)
+    {
+        DispatchEvent(json);
+    }
+
+    /// <summary>
+    /// Gets whether this window should exit (used by TauriApp to know when to unregister).
+    /// </summary>
+    internal bool ShouldExitFromApp => _shouldExit;
 
     // ========================================================================
     // IDisposable implementation

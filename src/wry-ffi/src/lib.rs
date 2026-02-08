@@ -53,6 +53,8 @@ pub mod app;
 pub mod window;
 pub mod webview;
 pub mod dialogs;
+pub mod notifications;
+pub mod shortcuts;
 pub mod menu;
 pub mod tray;
 
@@ -147,6 +149,9 @@ pub use window::{
     wry_window_set_ignore_cursor_events,
     wry_window_start_dragging,
     wry_window_start_resize_dragging,
+    wry_window_set_icon_rgba,
+    wry_window_set_icon_file,
+    wry_window_clear_icon,
 };
 
 // ============================================================================
@@ -236,4 +241,20 @@ pub use tray::{
     wry_tray_set_visible,
     wry_tray_set_show_menu_on_left_click,
     wry_tray_set_menu,
+};
+
+// ============================================================================
+// Re-exports: Notifications
+// ============================================================================
+
+pub use notifications::wry_notification_show;
+
+// ============================================================================
+// Re-exports: Global Shortcuts
+// ============================================================================
+
+pub use shortcuts::{
+    wry_shortcut_register,
+    wry_shortcut_unregister,
+    wry_shortcut_unregister_all,
 };

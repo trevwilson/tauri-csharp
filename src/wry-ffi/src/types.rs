@@ -600,6 +600,28 @@ pub struct WryTrayHandle {
 }
 
 // ============================================================================
+// Notification Types
+// ============================================================================
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug)]
+pub struct WryNotificationOptions {
+    pub title: *const c_char,
+    pub body: *const c_char,
+    pub icon: *const c_char,
+    pub timeout_ms: i32,
+    pub urgency: WryNotificationUrgency,
+}
+
+#[repr(C)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum WryNotificationUrgency {
+    Low = 0,
+    Normal = 1,
+    Critical = 2,
+}
+
+// ============================================================================
 // Callback Types
 // ============================================================================
 

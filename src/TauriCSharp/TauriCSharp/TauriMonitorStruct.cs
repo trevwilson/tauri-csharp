@@ -33,8 +33,13 @@ public struct NativeMonitor
 /// <summary>
 /// Represents information about a monitor.
 /// </summary>
-public readonly struct Monitor(Rectangle monitor, Rectangle work, double scale)
+public readonly struct Monitor(string name, Rectangle monitor, Rectangle work, double scale)
 {
+    /// <summary>
+    /// The display name of the monitor (e.g. "HDMI-1", "eDP-1").
+    /// </summary>
+    public readonly string Name = name;
+
     /// <summary>
     /// The full area of the monitor.
     /// </summary>
@@ -53,18 +58,21 @@ public readonly struct Monitor(Rectangle monitor, Rectangle work, double scale)
     /// <summary>
     /// Initializes a new instance of the <see cref="Monitor"/> struct using native structures.
     /// </summary>
-    /// <param name="monitor">The area of monitor as <see cref="NativeRect"/></param>
-    /// <param name="work">The working area as <see cref="NativeRect"/></param>
-    /// <param name="scale">The scale factor.</param>
     internal Monitor(NativeRect monitor, NativeRect work, double scale)
-        : this(new Rectangle(monitor.x, monitor.y, monitor.width, monitor.height), new Rectangle(work.x, work.y, work.width, work.height), scale)
+        : this("", new Rectangle(monitor.x, monitor.y, monitor.width, monitor.height), new Rectangle(work.x, work.y, work.width, work.height), scale)
     { }
 
     /// <summary>
     /// Initializes a new instance of the <see cref="Monitor"/> struct using a native monitor structure.
     /// </summary>
-    /// <param name="nativeMonitor">The native monitor structure.</param>
     internal Monitor(NativeMonitor nativeMonitor)
         : this(nativeMonitor.monitor, nativeMonitor.work, nativeMonitor.scale)
+    { }
+
+    /// <summary>
+    /// Backward-compatible constructor without name.
+    /// </summary>
+    public Monitor(Rectangle monitor, Rectangle work, double scale)
+        : this("", monitor, work, scale)
     { }
 }
