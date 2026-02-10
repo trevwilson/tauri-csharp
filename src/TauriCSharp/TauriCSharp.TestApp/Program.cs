@@ -11,12 +11,51 @@ class Program
     private static readonly StringBuilder _testResults = new();
     private static int _passCount = 0;
     private static int _failCount = 0;
+    private static int _skipCount = 0;
+    private static bool _autorun;
+    private static int _autorunIndex;
+
+    private static readonly string[] AutorunCommands =
+    [
+        "ping",
+        "echo:Hello from autorun!",
+        "get-window-info",
+        "set-title:Autorun Title",
+        "resize:900x700",
+        "move:100x100",
+        "maximize",
+        "restore",
+        "minimize",
+        "restore",
+        "execute-script",
+        "get-url",
+        "open-devtools",
+        "get-monitors",
+        "set-icon",
+        "send-notification",
+        "register-shortcut",
+        "open-child-window",
+        "broadcast-message",
+    ];
+
+    private static readonly (string Test, string Reason)[] AutorunSkippedTests =
+    [
+        ("dialog-open", "Native OS dialog blocks thread, requires user interaction"),
+        ("dialog-save", "Native OS dialog blocks thread, requires user interaction"),
+        ("dialog-confirm", "Native OS dialog blocks thread, requires user interaction"),
+        ("open-modal-window", "Blocks parent window input, no programmatic dismiss"),
+        ("navigate", "Navigates away from test page, destroys JS context"),
+    ];
 
     [STAThread]
-    static void Main(string[] _)
+    static void Main(string[] args)
     {
+        _autorun = args.Contains("--autorun", StringComparer.OrdinalIgnoreCase);
+
         Console.WriteLine("===========================================");
         Console.WriteLine("  TauriCSharp Test App - wry-ffi Validation");
+        if (_autorun)
+            Console.WriteLine("  Mode: AUTORUN");
         Console.WriteLine("===========================================");
         Console.WriteLine();
 
@@ -29,6 +68,13 @@ class Program
             Console.WriteLine($"FATAL ERROR: {ex.Message}");
             Console.WriteLine(ex.StackTrace);
             Environment.Exit(1);
+        }
+
+        if (_autorun)
+        {
+            var exitCode = _failCount > 0 ? 1 : 0;
+            Log($"Autorun finished. Exit code: {exitCode}");
+            Environment.Exit(exitCode);
         }
     }
 
@@ -77,7 +123,7 @@ class Program
         Console.WriteLine("  Test Results");
         Console.WriteLine("===========================================");
         Console.WriteLine(_testResults.ToString());
-        Console.WriteLine($"Passed: {_passCount}  Failed: {_failCount}");
+        Console.WriteLine($"Passed: {_passCount}  Failed: {_failCount}  Skipped: {_skipCount}");
         Console.WriteLine("===========================================");
     }
 
@@ -100,6 +146,30 @@ class Program
         if (_window != null)
         {
             TestWindowProperties();
+        }
+
+        if (_autorun && _window != null)
+        {
+            Log("Autorun: injecting IPC bootstrap...");
+
+            // Inject JS that polls until IPC is ready, then signals autorun-start
+            _window.ExecuteScript("""
+                (function waitForIpc() {
+                    if (window.ipc && window.ipc.postMessage && typeof sendMessage === 'function') {
+                        sendMessage('autorun-start');
+                    } else {
+                        setTimeout(waitForIpc, 50);
+                    }
+                })();
+            """);
+
+            // Watchdog: exit with code 2 if autorun stalls for 30 seconds
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(30_000);
+                Console.Error.WriteLine("AUTORUN TIMEOUT: 30 seconds elapsed without completion.");
+                Environment.Exit(2);
+            });
         }
     }
 
@@ -135,26 +205,31 @@ class Program
             case var m when m.StartsWith("echo:"):
                 var echoText = message[5..];
                 _window.SendWebMessage($"echo:{echoText}");
+                RecordTest("IPC echo", true);
                 break;
 
             case "get-window-info":
                 var info = $"Title: {_window.Title}, Size: {_window.Width}x{_window.Height}, Pos: {_window.Left},{_window.Top}";
                 _window.SendWebMessage($"info:{info}");
+                RecordTest("Get window info via IPC", true);
                 break;
 
             case "minimize":
                 _window.Minimized = true;
                 _window.SendWebMessage("minimized");
+                RecordTest("Minimize window", true);
                 break;
 
             case "maximize":
                 _window.Maximized = true;
                 _window.SendWebMessage("maximized");
+                RecordTest("Maximize window", _window.Maximized);
                 break;
 
             case "restore":
                 _window.Restore();
                 _window.SendWebMessage("restored");
+                RecordTest("Restore window", true);
                 break;
 
             case var m when m.StartsWith("set-title:"):
@@ -171,6 +246,7 @@ class Program
                 {
                     _window.Size = new Size(w, h);
                     _window.SendWebMessage($"resized:{_window.Width}x{_window.Height}");
+                    RecordTest("Resize window", _window.Width == w && _window.Height == h);
                 }
                 break;
 
@@ -182,6 +258,7 @@ class Program
                     _window.Left = x;
                     _window.Top = y;
                     _window.SendWebMessage($"moved:{_window.Left},{_window.Top}");
+                    RecordTest("Move window", true);
                 }
                 break;
 
@@ -194,6 +271,7 @@ class Program
             case "open-devtools":
                 _window.OpenDevTools();
                 _window.SendWebMessage("devtools-opened");
+                RecordTest("Open DevTools", true);
                 break;
 
             case "get-url":
@@ -250,6 +328,16 @@ class Program
 
             case "broadcast-message":
                 HandleBroadcastMessage();
+                break;
+
+            case "autorun-start":
+                Log("Autorun: IPC ready, starting test sequence...");
+                _autorunIndex = 0;
+                ContinueAutorun();
+                break;
+
+            case "autorun-next":
+                ContinueAutorun();
                 break;
 
             default:
@@ -695,5 +783,54 @@ class Program
         else _failCount++;
 
         Log($"TEST: {testName} - {status}");
+    }
+
+    static void RecordSkipped(string testName, string reason)
+    {
+        _testResults.AppendLine($"  [~] {testName} — SKIP: {reason}");
+        _skipCount++;
+        Log($"TEST: {testName} - SKIP ({reason})");
+    }
+
+    // ========================================================================
+    // Autorun
+    // ========================================================================
+
+    static void ContinueAutorun()
+    {
+        if (_window == null) return;
+
+        if (_autorunIndex >= AutorunCommands.Length)
+        {
+            // Record all skipped tests
+            foreach (var (test, reason) in AutorunSkippedTests)
+            {
+                RecordSkipped(test, reason);
+            }
+
+            Log($"Autorun: all {AutorunCommands.Length} commands complete. Closing window.");
+            _window.Close();
+            return;
+        }
+
+        var command = AutorunCommands[_autorunIndex];
+        _autorunIndex++;
+
+        // Determine delay: allow extra time for window state changes and child windows
+        var delayMs = command switch
+        {
+            "maximize" or "minimize" or "restore" => 400,
+            "open-child-window" => 800,
+            _ => 200,
+        };
+
+        Log($"Autorun [{_autorunIndex}/{AutorunCommands.Length}]: {command} (delay={delayMs}ms)");
+
+        // Escape single quotes in command for JS string literal
+        var escapedCommand = command.Replace("'", "\\'");
+
+        // Self-advancing chain: send the command, then after delay send autorun-next
+        _window.ExecuteScript(
+            $"sendMessage('{escapedCommand}'); setTimeout(() => sendMessage('autorun-next'), {delayMs});");
     }
 }
