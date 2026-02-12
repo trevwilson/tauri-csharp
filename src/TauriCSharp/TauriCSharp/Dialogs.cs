@@ -22,8 +22,8 @@ public static class Dialogs
         bool allowDirectories = false,
         bool allowMultiple = false)
     {
-        var titlePtr = title != null ? Marshal.StringToHGlobalAnsi(title) : IntPtr.Zero;
-        var defaultPathPtr = defaultPath != null ? Marshal.StringToHGlobalAnsi(defaultPath) : IntPtr.Zero;
+        var titlePtr = title != null ? Marshal.StringToCoTaskMemUTF8(title) : IntPtr.Zero;
+        var defaultPathPtr = defaultPath != null ? Marshal.StringToCoTaskMemUTF8(defaultPath) : IntPtr.Zero;
 
         try
         {
@@ -44,8 +44,8 @@ public static class Dialogs
         }
         finally
         {
-            if (titlePtr != IntPtr.Zero) Marshal.FreeHGlobal(titlePtr);
-            if (defaultPathPtr != IntPtr.Zero) Marshal.FreeHGlobal(defaultPathPtr);
+            if (titlePtr != IntPtr.Zero) Marshal.FreeCoTaskMem(titlePtr);
+            if (defaultPathPtr != IntPtr.Zero) Marshal.FreeCoTaskMem(defaultPathPtr);
         }
     }
 
@@ -61,9 +61,9 @@ public static class Dialogs
         string? defaultPath = null,
         string? defaultName = null)
     {
-        var titlePtr = title != null ? Marshal.StringToHGlobalAnsi(title) : IntPtr.Zero;
-        var defaultPathPtr = defaultPath != null ? Marshal.StringToHGlobalAnsi(defaultPath) : IntPtr.Zero;
-        var defaultNamePtr = defaultName != null ? Marshal.StringToHGlobalAnsi(defaultName) : IntPtr.Zero;
+        var titlePtr = title != null ? Marshal.StringToCoTaskMemUTF8(title) : IntPtr.Zero;
+        var defaultPathPtr = defaultPath != null ? Marshal.StringToCoTaskMemUTF8(defaultPath) : IntPtr.Zero;
+        var defaultNamePtr = defaultName != null ? Marshal.StringToCoTaskMemUTF8(defaultName) : IntPtr.Zero;
 
         try
         {
@@ -83,9 +83,9 @@ public static class Dialogs
         }
         finally
         {
-            if (titlePtr != IntPtr.Zero) Marshal.FreeHGlobal(titlePtr);
-            if (defaultPathPtr != IntPtr.Zero) Marshal.FreeHGlobal(defaultPathPtr);
-            if (defaultNamePtr != IntPtr.Zero) Marshal.FreeHGlobal(defaultNamePtr);
+            if (titlePtr != IntPtr.Zero) Marshal.FreeCoTaskMem(titlePtr);
+            if (defaultPathPtr != IntPtr.Zero) Marshal.FreeCoTaskMem(defaultPathPtr);
+            if (defaultNamePtr != IntPtr.Zero) Marshal.FreeCoTaskMem(defaultNamePtr);
         }
     }
 
@@ -101,8 +101,8 @@ public static class Dialogs
         string message,
         MessageLevel level = MessageLevel.Info)
     {
-        var titlePtr = Marshal.StringToHGlobalAnsi(title);
-        var messagePtr = Marshal.StringToHGlobalAnsi(message);
+        var titlePtr = Marshal.StringToCoTaskMemUTF8(title);
+        var messagePtr = Marshal.StringToCoTaskMemUTF8(message);
 
         try
         {
@@ -119,8 +119,8 @@ public static class Dialogs
         }
         finally
         {
-            Marshal.FreeHGlobal(titlePtr);
-            Marshal.FreeHGlobal(messagePtr);
+            Marshal.FreeCoTaskMem(titlePtr);
+            Marshal.FreeCoTaskMem(messagePtr);
         }
     }
 
@@ -136,8 +136,8 @@ public static class Dialogs
         string message,
         MessageLevel level = MessageLevel.Info)
     {
-        var titlePtr = Marshal.StringToHGlobalAnsi(title);
-        var messagePtr = Marshal.StringToHGlobalAnsi(message);
+        var titlePtr = Marshal.StringToCoTaskMemUTF8(title);
+        var messagePtr = Marshal.StringToCoTaskMemUTF8(message);
 
         try
         {
@@ -154,8 +154,8 @@ public static class Dialogs
         }
         finally
         {
-            Marshal.FreeHGlobal(titlePtr);
-            Marshal.FreeHGlobal(messagePtr);
+            Marshal.FreeCoTaskMem(titlePtr);
+            Marshal.FreeCoTaskMem(messagePtr);
         }
     }
 
@@ -173,8 +173,8 @@ public static class Dialogs
         MessageLevel level = MessageLevel.Info,
         MessageButtons buttons = MessageButtons.Ok)
     {
-        var titlePtr = Marshal.StringToHGlobalAnsi(title);
-        var messagePtr = Marshal.StringToHGlobalAnsi(message);
+        var titlePtr = Marshal.StringToCoTaskMemUTF8(title);
+        var messagePtr = Marshal.StringToCoTaskMemUTF8(message);
 
         try
         {
@@ -194,8 +194,8 @@ public static class Dialogs
         }
         finally
         {
-            Marshal.FreeHGlobal(titlePtr);
-            Marshal.FreeHGlobal(messagePtr);
+            Marshal.FreeCoTaskMem(titlePtr);
+            Marshal.FreeCoTaskMem(messagePtr);
         }
     }
 
@@ -213,10 +213,10 @@ public static class Dialogs
         string? placeholder = null,
         string? defaultValue = null)
     {
-        var titlePtr = Marshal.StringToHGlobalAnsi(title);
-        var messagePtr = Marshal.StringToHGlobalAnsi(message);
-        var placeholderPtr = placeholder != null ? Marshal.StringToHGlobalAnsi(placeholder) : IntPtr.Zero;
-        var defaultValuePtr = defaultValue != null ? Marshal.StringToHGlobalAnsi(defaultValue) : IntPtr.Zero;
+        var titlePtr = Marshal.StringToCoTaskMemUTF8(title);
+        var messagePtr = Marshal.StringToCoTaskMemUTF8(message);
+        var placeholderPtr = placeholder != null ? Marshal.StringToCoTaskMemUTF8(placeholder) : IntPtr.Zero;
+        var defaultValuePtr = defaultValue != null ? Marshal.StringToCoTaskMemUTF8(defaultValue) : IntPtr.Zero;
 
         try
         {
@@ -235,7 +235,7 @@ public static class Dialogs
 
             if (result.Accepted && result.Value != IntPtr.Zero)
             {
-                value = Marshal.PtrToStringAnsi(result.Value);
+                value = Marshal.PtrToStringUTF8(result.Value);
             }
 
             WryInterop.DialogPromptResultFree(result);
@@ -243,10 +243,10 @@ public static class Dialogs
         }
         finally
         {
-            Marshal.FreeHGlobal(titlePtr);
-            Marshal.FreeHGlobal(messagePtr);
-            if (placeholderPtr != IntPtr.Zero) Marshal.FreeHGlobal(placeholderPtr);
-            if (defaultValuePtr != IntPtr.Zero) Marshal.FreeHGlobal(defaultValuePtr);
+            Marshal.FreeCoTaskMem(titlePtr);
+            Marshal.FreeCoTaskMem(messagePtr);
+            if (placeholderPtr != IntPtr.Zero) Marshal.FreeCoTaskMem(placeholderPtr);
+            if (defaultValuePtr != IntPtr.Zero) Marshal.FreeCoTaskMem(defaultValuePtr);
         }
     }
 
@@ -259,7 +259,7 @@ public static class Dialogs
         for (var i = 0; i < (int)selection.Count; i++)
         {
             var pathPtr = Marshal.ReadIntPtr(selection.Paths, i * IntPtr.Size);
-            paths[i] = Marshal.PtrToStringAnsi(pathPtr) ?? string.Empty;
+            paths[i] = Marshal.PtrToStringUTF8(pathPtr) ?? string.Empty;
         }
         return paths;
     }
