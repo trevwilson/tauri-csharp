@@ -35,6 +35,7 @@ public class TauriApp : IDisposable
     public static TauriApp Instance => _instance.Value;
 
     private readonly ConcurrentDictionary<string, TauriWindow> _windows = new();
+    private readonly ConcurrentBag<TauriWindow> _pendingWindows = new();
     private readonly ILogger? _logger;
     private bool _disposed;
     private bool _shouldQuit;
@@ -60,7 +61,9 @@ public class TauriApp : IDisposable
     /// <returns>A new, unconfigured TauriWindow. Call fluent methods to configure, then call <see cref="Run"/>.</returns>
     public TauriWindow CreateWindow(ILogger? logger = null)
     {
-        return new TauriWindow(logger, app: this);
+        var window = new TauriWindow(logger, app: this);
+        _pendingWindows.Add(window);
+        return window;
     }
 
     /// <summary>
@@ -68,14 +71,15 @@ public class TauriApp : IDisposable
     /// </summary>
     public void Run()
     {
-        if (_windows.IsEmpty)
-            throw new InvalidOperationException("No windows have been initialized. Call CreateWindow() and configure windows before calling Run().");
-
-        // Initialize all pending windows
-        foreach (var window in _windows.Values)
+        // Initialize all pending windows (CreateWindow adds to _pendingWindows,
+        // InitializeForApp calls RegisterWindow which moves them to _windows)
+        while (_pendingWindows.TryTake(out var window))
         {
             window.InitializeForApp();
         }
+
+        if (_windows.IsEmpty)
+            throw new InvalidOperationException("No windows have been initialized. Call CreateWindow() and configure windows before calling Run().");
 
         var eventLoop = TauriWindow.EnsureEventLoopStatic();
         var callbackRegistry = TauriWindow.CallbackRegistryStatic;

@@ -30,6 +30,7 @@ pub struct WryWindowHandle {
 /// Opaque handle to a webview
 pub struct WryWebviewHandle {
     pub webview: wry::WebView,
+    pub identifier: std::ffi::CString,
 }
 
 // ============================================================================

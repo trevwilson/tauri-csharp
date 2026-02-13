@@ -282,7 +282,10 @@ pub extern "C" fn wry_webview_build(
                     Some(vbox) => builder
                         .build_gtk(vbox)
                         .ok()
-                        .map(|webview| Box::into_raw(Box::new(WryWebviewHandle { webview }))),
+                        .map(|webview| Box::into_raw(Box::new(WryWebviewHandle {
+                            identifier: CString::new(format!("{}", webview.id())).unwrap_or_default(),
+                            webview,
+                        }))),
                     None => None,
                 }
             }
@@ -291,7 +294,10 @@ pub extern "C" fn wry_webview_build(
                 builder
                     .build_as_child(w)
                     .ok()
-                    .map(|webview| Box::into_raw(Box::new(WryWebviewHandle { webview })))
+                    .map(|webview| Box::into_raw(Box::new(WryWebviewHandle {
+                            identifier: CString::new(format!("{}", webview.id())).unwrap_or_default(),
+                            webview,
+                        })))
             }
         } else {
             #[cfg(target_os = "linux")]
@@ -301,7 +307,10 @@ pub extern "C" fn wry_webview_build(
                     Some(vbox) => builder
                         .build_gtk(vbox)
                         .ok()
-                        .map(|webview| Box::into_raw(Box::new(WryWebviewHandle { webview }))),
+                        .map(|webview| Box::into_raw(Box::new(WryWebviewHandle {
+                            identifier: CString::new(format!("{}", webview.id())).unwrap_or_default(),
+                            webview,
+                        }))),
                     None => None,
                 }
             }
@@ -310,7 +319,10 @@ pub extern "C" fn wry_webview_build(
                 builder
                     .build(w)
                     .ok()
-                    .map(|webview| Box::into_raw(Box::new(WryWebviewHandle { webview })))
+                    .map(|webview| Box::into_raw(Box::new(WryWebviewHandle {
+                            identifier: CString::new(format!("{}", webview.id())).unwrap_or_default(),
+                            webview,
+                        })))
             }
         }
     })
@@ -327,12 +339,11 @@ pub extern "C" fn wry_webview_free(webview: *mut WryWebviewHandle) {
 
 #[no_mangle]
 pub extern "C" fn wry_webview_identifier(webview: *mut WryWebviewHandle) -> *const c_char {
-    with_webview(webview, |view| {
-        let id_string = format!("{}", view.id());
-        let cstring = CString::new(id_string).unwrap_or_else(|_| CString::new("").unwrap());
-        cstring.into_raw() as *const c_char
-    })
-    .unwrap_or(ptr::null())
+    if webview.is_null() {
+        return ptr::null();
+    }
+
+    unsafe { &*webview }.identifier.as_ptr()
 }
 
 // ============================================================================

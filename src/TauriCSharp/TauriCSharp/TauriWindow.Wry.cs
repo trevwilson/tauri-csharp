@@ -59,6 +59,13 @@ public partial class TauriWindow : IDisposable
     private static WryEventLoopCallback? _eventLoopCallback;
 
     /// <summary>
+    /// Static delegate and function pointer for protocol response cleanup.
+    /// Single instance reused across all requests since FreeResponseData is static.
+    /// </summary>
+    private static readonly WryCustomProtocolResponseFree _freeResponseDataCallback = FreeResponseData;
+    private static readonly IntPtr _freeResponseDataPtr = Marshal.GetFunctionPointerForDelegate(_freeResponseDataCallback);
+
+    /// <summary>
     /// The TauriApp that owns this window (null for single-window mode).
     /// </summary>
     private TauriApp? _ownerApp;
@@ -395,32 +402,19 @@ public partial class TauriWindow : IDisposable
             // Allocate mime type
             var mimePtr = Marshal.StringToCoTaskMemUTF8(contentType ?? "application/octet-stream");
 
-            // Create free delegate
-            WryCustomProtocolResponseFree freeCallback = FreeResponseData;
-            var freeHandle = GCHandle.Alloc(freeCallback);
-            var freePtr = Marshal.GetFunctionPointerForDelegate(freeCallback);
-
-            // Store the body pointer as user data so we can free it
-            // Actually, we need to track both bodyPtr and mimePtr
-            // For simplicity, we'll just leak the mime type for now (small)
-            // and free the body
-
-            // Build response
+            // Build response using static free callback (single instance, no per-request allocation)
             var response = new WryCustomProtocolResponse
             {
                 Status = 200,
                 Headers = default,
                 Body = new WryCustomProtocolBuffer { Ptr = bodyPtr, Len = (nuint)bodyBytes.Length },
                 MimeType = mimePtr,
-                Free = freePtr,
+                Free = _freeResponseDataPtr,
                 UserData = bodyPtr, // Pass body ptr so we can free it
             };
 
             // Write response (blittable struct - direct pointer write avoids Marshal runtime marshalling)
             System.Runtime.CompilerServices.Unsafe.Write((void*)responsePtr, response);
-
-            // Keep the free callback alive
-            _callbackRegistry.Register(_wryWindow, freeCallback);
 
             return true;
         }
