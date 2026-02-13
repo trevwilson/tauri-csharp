@@ -86,19 +86,22 @@ pub extern "C" fn wry_dialog_save(
 
 #[no_mangle]
 pub extern "C" fn wry_dialog_selection_free(selection: WryDialogSelection) {
-    if selection.count == 0 || selection.paths.is_null() {
-        return;
-    }
+    let _ = guard_panic_bool(|| {
+        if selection.count == 0 || selection.paths.is_null() {
+            return true;
+        }
 
-    unsafe {
-        let slice = std::slice::from_raw_parts_mut(selection.paths, selection.count);
-        let boxed = Box::from_raw(slice as *mut [*mut c_char]);
-        for &ptr in boxed.iter() {
-            if !ptr.is_null() {
-                drop(CString::from_raw(ptr));
+        unsafe {
+            let slice = std::slice::from_raw_parts_mut(selection.paths, selection.count);
+            let boxed = Box::from_raw(slice as *mut [*mut c_char]);
+            for &ptr in boxed.iter() {
+                if !ptr.is_null() {
+                    drop(CString::from_raw(ptr));
+                }
             }
         }
-    }
+        true
+    });
 }
 
 // ============================================================================
@@ -211,9 +214,12 @@ pub extern "C" fn wry_dialog_prompt(
 
 #[no_mangle]
 pub extern "C" fn wry_dialog_prompt_result_free(result: WryPromptDialogResult) {
-    if !result.value.is_null() {
-        unsafe {
-            drop(CString::from_raw(result.value));
+    let _ = guard_panic_bool(|| {
+        if !result.value.is_null() {
+            unsafe {
+                drop(CString::from_raw(result.value));
+            }
         }
-    }
+        true
+    });
 }

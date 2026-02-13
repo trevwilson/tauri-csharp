@@ -1,7 +1,6 @@
 // wry-ffi C# bindings - P/Invoke declarations
 // All FFI functions from the Velox-based wry-ffi crate
 
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 namespace TauriCSharp.Interop;
@@ -152,7 +151,7 @@ internal static partial class WryInterop
     /// Create a new window.
     /// </summary>
     [LibraryImport(WryLib, EntryPoint = "wry_window_build")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     public static partial IntPtr WindowBuild(IntPtr eventLoop, in WryWindowConfig config);
 
     /// <summary>
@@ -249,7 +248,7 @@ internal static partial class WryInterop
     public static partial bool WindowSetClosable(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool closable);
 
     [LibraryImport(WryLib, EntryPoint = "wry_window_set_background_color")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool WindowSetBackgroundColor(IntPtr window, in WryColor color);
 
@@ -467,7 +466,7 @@ internal static partial class WryInterop
     public static partial IntPtr WindowAvailableMonitors(IntPtr window);
 
     [LibraryImport(WryLib, EntryPoint = "wry_window_monitor_from_point")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     public static partial IntPtr WindowMonitorFromPoint(IntPtr window, WryPoint point);
 
     // ==========================================================================
@@ -478,7 +477,7 @@ internal static partial class WryInterop
     /// Set window icon from raw RGBA pixel data.
     /// </summary>
     [LibraryImport(WryLib, EntryPoint = "wry_window_set_icon_rgba")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool WindowSetIconRgba(IntPtr window, IntPtr rgbaData, nuint rgbaLen, uint width, uint height);
 
@@ -486,7 +485,7 @@ internal static partial class WryInterop
     /// Set window icon from an image file path (PNG, ICO, JPEG).
     /// </summary>
     [LibraryImport(WryLib, EntryPoint = "wry_window_set_icon_file", StringMarshalling = StringMarshalling.Utf8)]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool WindowSetIconFile(IntPtr window, string path);
 
@@ -494,7 +493,7 @@ internal static partial class WryInterop
     /// Clear the window icon.
     /// </summary>
     [LibraryImport(WryLib, EntryPoint = "wry_window_clear_icon")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool WindowClearIcon(IntPtr window);
 
@@ -503,7 +502,7 @@ internal static partial class WryInterop
     /// Used for modal dialog support. Windows: set_enable, Linux: set_sensitive, macOS: no-op.
     /// </summary>
     [LibraryImport(WryLib, EntryPoint = "wry_window_set_enabled")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool WindowSetEnabled(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool enabled);
 
@@ -515,7 +514,7 @@ internal static partial class WryInterop
     /// Create a webview in a window.
     /// </summary>
     [LibraryImport(WryLib, EntryPoint = "wry_webview_build")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     public static partial IntPtr WebviewBuild(IntPtr window, in WryWebviewConfig config);
 
     /// <summary>
@@ -526,7 +525,7 @@ internal static partial class WryInterop
     public static partial void WebviewFree(IntPtr webview);
 
     /// <summary>
-    /// Get webview identifier (caller must free with wry_string_free - actually returns allocated string).
+    /// Get webview identifier (do not free).
     /// </summary>
     [LibraryImport(WryLib, EntryPoint = "wry_webview_identifier")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
@@ -592,12 +591,12 @@ internal static partial class WryInterop
     // ==========================================================================
 
     [LibraryImport(WryLib, EntryPoint = "wry_webview_open_devtools")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool WebviewOpenDevTools(IntPtr webview);
 
     [LibraryImport(WryLib, EntryPoint = "wry_webview_close_devtools")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool WebviewCloseDevTools(IntPtr webview);
 
@@ -615,11 +614,11 @@ internal static partial class WryInterop
     // ==========================================================================
 
     [LibraryImport(WryLib, EntryPoint = "wry_dialog_open")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     public static partial WryDialogSelection DialogOpen(in WryDialogOpenOptions options);
 
     [LibraryImport(WryLib, EntryPoint = "wry_dialog_save")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     public static partial WryDialogSelection DialogSave(in WryDialogSaveOptions options);
 
     [LibraryImport(WryLib, EntryPoint = "wry_dialog_selection_free")]
@@ -627,26 +626,26 @@ internal static partial class WryInterop
     public static partial void DialogSelectionFree(WryDialogSelection selection);
 
     [LibraryImport(WryLib, EntryPoint = "wry_dialog_message")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool DialogMessage(in WryMessageDialogOptions options);
 
     [LibraryImport(WryLib, EntryPoint = "wry_dialog_confirm")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool DialogConfirm(in WryConfirmDialogOptions options);
 
     [LibraryImport(WryLib, EntryPoint = "wry_dialog_ask")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool DialogAsk(in WryAskDialogOptions options);
 
     [LibraryImport(WryLib, EntryPoint = "wry_dialog_prompt")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     public static partial WryPromptDialogResult DialogPrompt(in WryPromptDialogOptions options);
 
     [LibraryImport(WryLib, EntryPoint = "wry_dialog_prompt_result_free")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     public static partial void DialogPromptResultFree(WryPromptDialogResult result);
 
     // ==========================================================================
@@ -657,7 +656,7 @@ internal static partial class WryInterop
     /// Show a desktop notification.
     /// </summary>
     [LibraryImport(WryLib, EntryPoint = "wry_notification_show")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool NotificationShow(in WryNotificationOptions options);
 
@@ -669,14 +668,14 @@ internal static partial class WryInterop
     /// Register a global shortcut. Returns shortcut ID (0 = failure).
     /// </summary>
     [LibraryImport(WryLib, EntryPoint = "wry_shortcut_register", StringMarshalling = StringMarshalling.Utf8)]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     public static partial uint ShortcutRegister(string accelerator);
 
     /// <summary>
     /// Unregister a global shortcut by ID.
     /// </summary>
     [LibraryImport(WryLib, EntryPoint = "wry_shortcut_unregister")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool ShortcutUnregister(uint shortcutId);
 
@@ -684,7 +683,7 @@ internal static partial class WryInterop
     /// Unregister all global shortcuts.
     /// </summary>
     [LibraryImport(WryLib, EntryPoint = "wry_shortcut_unregister_all")]
-    [UnmanagedCallConv(CallConvs = [typeof(CallConvCdecl)])]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool ShortcutUnregisterAll();
 

@@ -402,6 +402,11 @@ public partial class TauriWindow : IDisposable
             // Allocate mime type
             var mimePtr = Marshal.StringToCoTaskMemUTF8(contentType ?? "application/octet-stream");
 
+            // Pack both pointers into an allocation so FreeResponseData can free both
+            var allocPtr = Marshal.AllocHGlobal(IntPtr.Size * 2);
+            Marshal.WriteIntPtr(allocPtr, 0, bodyPtr);
+            Marshal.WriteIntPtr(allocPtr, IntPtr.Size, mimePtr);
+
             // Build response using static free callback (single instance, no per-request allocation)
             var response = new WryCustomProtocolResponse
             {
@@ -410,7 +415,7 @@ public partial class TauriWindow : IDisposable
                 Body = new WryCustomProtocolBuffer { Ptr = bodyPtr, Len = (nuint)bodyBytes.Length },
                 MimeType = mimePtr,
                 Free = _freeResponseDataPtr,
-                UserData = bodyPtr, // Pass body ptr so we can free it
+                UserData = allocPtr,
             };
 
             // Write response (blittable struct - direct pointer write avoids Marshal runtime marshalling)
@@ -427,11 +432,16 @@ public partial class TauriWindow : IDisposable
 
     /// <summary>
     /// Frees response data allocated by the protocol handler.
+    /// userData points to a two-IntPtr block: [bodyPtr, mimePtr].
     /// </summary>
     private static void FreeResponseData(IntPtr userData)
     {
         if (userData != IntPtr.Zero)
         {
+            var bodyPtr = Marshal.ReadIntPtr(userData, 0);
+            var mimePtr = Marshal.ReadIntPtr(userData, IntPtr.Size);
+            if (bodyPtr != IntPtr.Zero) Marshal.FreeHGlobal(bodyPtr);
+            if (mimePtr != IntPtr.Zero) Marshal.FreeCoTaskMem(mimePtr);
             Marshal.FreeHGlobal(userData);
         }
     }

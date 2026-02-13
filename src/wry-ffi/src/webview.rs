@@ -32,6 +32,7 @@ pub extern "C" fn wry_webview_build(
     window: *mut WryWindowHandle,
     config: *const WryWebviewConfig,
 ) -> *mut WryWebviewHandle {
+    guard_panic(|| {
     if window.is_null() {
         return ptr::null_mut();
     }
@@ -328,13 +329,17 @@ pub extern "C" fn wry_webview_build(
     })
     .flatten()
     .unwrap_or(ptr::null_mut())
+    })
 }
 
 #[no_mangle]
 pub extern "C" fn wry_webview_free(webview: *mut WryWebviewHandle) {
-    if !webview.is_null() {
-        unsafe { drop(Box::from_raw(webview)) };
-    }
+    let _ = guard_panic_bool(|| {
+        if !webview.is_null() {
+            unsafe { drop(Box::from_raw(webview)) };
+        }
+        true
+    });
 }
 
 #[no_mangle]

@@ -68,9 +68,12 @@ pub extern "C" fn wry_tray_new(_config: *const WryTrayConfig) -> *mut WryTrayHan
 #[cfg(target_os = "macos")]
 #[no_mangle]
 pub extern "C" fn wry_tray_free(tray: *mut WryTrayHandle) {
-    if !tray.is_null() {
-        unsafe { drop(Box::from_raw(tray)) };
-    }
+    let _ = guard_panic_bool(|| {
+        if !tray.is_null() {
+            unsafe { drop(Box::from_raw(tray)) };
+        }
+        true
+    });
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -95,12 +98,14 @@ pub extern "C" fn wry_tray_identifier(_tray: *mut WryTrayHandle) -> *const c_cha
 #[cfg(target_os = "macos")]
 #[no_mangle]
 pub extern "C" fn wry_tray_set_title(tray: *mut WryTrayHandle, title: *const c_char) -> bool {
-    let Some(tray) = (unsafe { tray.as_mut() }) else {
-        return false;
-    };
-    let result_title = opt_cstring(title);
-    tray.tray.set_title(result_title.as_deref());
-    true
+    guard_panic_bool(|| {
+        let Some(tray) = (unsafe { tray.as_mut() }) else {
+            return false;
+        };
+        let result_title = opt_cstring(title);
+        tray.tray.set_title(result_title.as_deref());
+        true
+    })
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -115,11 +120,13 @@ pub extern "C" fn wry_tray_set_tooltip(
     tray: *mut WryTrayHandle,
     tooltip: *const c_char,
 ) -> bool {
-    let Some(tray) = (unsafe { tray.as_mut() }) else {
-        return false;
-    };
-    let tooltip = opt_cstring(tooltip);
-    tray.tray.set_tooltip(tooltip.as_deref()).is_ok()
+    guard_panic_bool(|| {
+        let Some(tray) = (unsafe { tray.as_mut() }) else {
+            return false;
+        };
+        let tooltip = opt_cstring(tooltip);
+        tray.tray.set_tooltip(tooltip.as_deref()).is_ok()
+    })
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -134,10 +141,12 @@ pub extern "C" fn wry_tray_set_tooltip(
 #[cfg(target_os = "macos")]
 #[no_mangle]
 pub extern "C" fn wry_tray_set_visible(tray: *mut WryTrayHandle, visible: bool) -> bool {
-    let Some(tray) = (unsafe { tray.as_mut() }) else {
-        return false;
-    };
-    tray.tray.set_visible(visible).is_ok()
+    guard_panic_bool(|| {
+        let Some(tray) = (unsafe { tray.as_mut() }) else {
+            return false;
+        };
+        tray.tray.set_visible(visible).is_ok()
+    })
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -152,11 +161,13 @@ pub extern "C" fn wry_tray_set_show_menu_on_left_click(
     tray: *mut WryTrayHandle,
     enable: bool,
 ) -> bool {
-    let Some(tray) = (unsafe { tray.as_mut() }) else {
-        return false;
-    };
-    tray.tray.set_show_menu_on_left_click(enable);
-    true
+    guard_panic_bool(|| {
+        let Some(tray) = (unsafe { tray.as_mut() }) else {
+            return false;
+        };
+        tray.tray.set_show_menu_on_left_click(enable);
+        true
+    })
 }
 
 #[cfg(not(target_os = "macos"))]
@@ -174,27 +185,29 @@ pub extern "C" fn wry_tray_set_menu(
     tray: *mut WryTrayHandle,
     menu: *mut WryMenuBarHandle,
 ) -> bool {
-    let Some(tray) = (unsafe { tray.as_mut() }) else {
-        return false;
-    };
+    guard_panic_bool(|| {
+        let Some(tray) = (unsafe { tray.as_mut() }) else {
+            return false;
+        };
 
-    if menu.is_null() {
-        tray.tray
-            .set_menu(None::<Box<dyn tray_icon::menu::ContextMenu>>);
-        tray.menu = None;
-        return true;
-    }
+        if menu.is_null() {
+            tray.tray
+                .set_menu(None::<Box<dyn tray_icon::menu::ContextMenu>>);
+            tray.menu = None;
+            return true;
+        }
 
-    let Some(menu_handle) = (unsafe { menu.as_ref() }) else {
-        return false;
-    };
+        let Some(menu_handle) = (unsafe { menu.as_ref() }) else {
+            return false;
+        };
 
-    let cloned_menu = menu_handle.menu.clone();
-    tray.tray.set_menu(Some(
-        Box::new(cloned_menu.clone()) as Box<dyn tray_icon::menu::ContextMenu>
-    ));
-    tray.menu = Some(cloned_menu);
-    true
+        let cloned_menu = menu_handle.menu.clone();
+        tray.tray.set_menu(Some(
+            Box::new(cloned_menu.clone()) as Box<dyn tray_icon::menu::ContextMenu>
+        ));
+        tray.menu = Some(cloned_menu);
+        true
+    })
 }
 
 #[cfg(not(target_os = "macos"))]

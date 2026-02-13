@@ -36,9 +36,9 @@ public class TauriApp : IDisposable
 
     private readonly ConcurrentDictionary<string, TauriWindow> _windows = new();
     private readonly ConcurrentBag<TauriWindow> _pendingWindows = new();
-    private readonly ILogger? _logger;
+    private ILogger? _logger;
     private bool _disposed;
-    private bool _shouldQuit;
+    private volatile bool _shouldQuit;
 
     /// <summary>
     /// Event loop callback - pinned for lifetime of event loop.
@@ -46,12 +46,17 @@ public class TauriApp : IDisposable
     private WryEventLoopCallback? _appEventLoopCallback;
 
     /// <summary>
-    /// Creates a new TauriApp instance.
+    /// Gets or sets the logger for application-level logging.
+    /// Set this before calling <see cref="Run"/> to enable logging.
     /// </summary>
-    /// <param name="logger">Optional logger for application-level logging.</param>
-    private TauriApp(ILogger? logger = null)
+    public ILogger? Logger
     {
-        _logger = logger;
+        get => _logger;
+        set => _logger = value;
+    }
+
+    private TauriApp()
+    {
     }
 
     /// <summary>

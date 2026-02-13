@@ -226,17 +226,6 @@ public partial class TauriWindow
     }
 
     /// <summary>
-    /// Navigates to a URL after window creation using wry-ffi.
-    /// </summary>
-    private void NavigateToUrlWry(string url)
-    {
-        if (_wryWebview != IntPtr.Zero)
-        {
-            WryInterop.WebviewNavigate(_wryWebview, url);
-        }
-    }
-
-    /// <summary>
     /// Loads raw HTML string into the webview.
     /// Note: wry-ffi doesn't have a direct LoadHtml, so we use a data URL.
     /// </summary>

@@ -95,7 +95,6 @@ pub fn write_string_to_buffer(
 // Panic Guards
 // ============================================================================
 
-#[cfg(target_os = "macos")]
 pub fn guard_panic<T>(f: impl FnOnce() -> *mut T) -> *mut T {
     match catch_unwind(AssertUnwindSafe(f)) {
         Ok(ptr) => ptr,
