@@ -112,15 +112,9 @@ public partial class TauriWindow
     {
         if (_wryWebview != IntPtr.Zero)
         {
-            // Escape the message for JavaScript
-            var escapedMessage = message
-                .Replace("\\", "\\\\")
-                .Replace("'", "\\'")
-                .Replace("\n", "\\n")
-                .Replace("\r", "\\r");
-
-            // The webview should have window.ipc.receive registered to handle this
-            var script = $"if (window.ipc && window.ipc.receive) {{ window.ipc.receive('{escapedMessage}'); }}";
+            // JSON serialization produces a properly escaped JS string literal (including quotes)
+            var jsonEscaped = System.Text.Json.JsonSerializer.Serialize(message);
+            var script = $"if (window.ipc && window.ipc.receive) {{ window.ipc.receive({jsonEscaped}); }}";
             WryInterop.WebviewEvaluateScript(_wryWebview, script);
         }
     }
@@ -186,16 +180,6 @@ public partial class TauriWindow
         {
             WryInterop.WindowSetMaxSize(_wryWindow, maxWidth, maxHeight);
         }
-    }
-
-    // ========================================================================
-    // Features not yet implemented in wry-ffi - throw NotSupportedException
-    // ========================================================================
-
-    private static void ThrowNotSupported(string feature)
-    {
-        throw new NotSupportedException($"{feature} is not yet supported with the wry-ffi backend. " +
-            "This feature will be implemented in a future release.");
     }
 
     // ========================================================================
@@ -326,40 +310,4 @@ public partial class TauriWindow
         }
     }
 
-    // Platform-specific features that need platform-specific implementations
-    private static void GetTransparentNotSupported() => ThrowNotSupported("Transparent window state query");
-    private static void GetContextMenuEnabledNotSupported() => ThrowNotSupported("Context menu enabled state");
-    private static void SetContextMenuEnabledNotSupported() => ThrowNotSupported("Context menu enabled");
-    private static void GetDevToolsEnabledNotSupported() => ThrowNotSupported("DevTools enabled state query");
-    private static void SetDevToolsEnabledNotSupported() => ThrowNotSupported("DevTools enabled");
-    private static void GetGrantBrowserPermissionsNotSupported() => ThrowNotSupported("Browser permissions state");
-    private static void GetResizableNotSupported() => ThrowNotSupported("Resizable state query");
-    private static void SetResizableNotSupported() => ThrowNotSupported("Resizable");
-    private static void GetTopmostNotSupported() => ThrowNotSupported("Topmost state query");
-    private static void SetTopmostNotSupported() => ThrowNotSupported("Topmost");
-
-    // Dialog features
-    private static void ShowOpenFileNotSupported() => ThrowNotSupported("Open file dialog");
-    private static void ShowOpenFolderNotSupported() => ThrowNotSupported("Open folder dialog");
-    private static void ShowSaveFileNotSupported() => ThrowNotSupported("Save file dialog");
-    private static void ShowMessageDialogNotSupported() => ThrowNotSupported("Message dialog");
-
-    // Windows-specific
-    private static void GetWindowHandleNotSupported() => ThrowNotSupported("Native window handle");
-    private static void SetWebView2PathNotSupported() => ThrowNotSupported("WebView2 runtime path");
-    private static void ClearBrowserAutoFillNotSupported() => ThrowNotSupported("Browser autofill clearing");
-
-    // Browser settings that wry doesn't expose at runtime
-    private static void GetMediaAutoplayNotSupported() => ThrowNotSupported("Media autoplay state query");
-    private static void GetUserAgentNotSupported() => ThrowNotSupported("User agent query");
-    private static void GetFileSystemAccessNotSupported() => ThrowNotSupported("File system access state");
-    private static void GetWebSecurityNotSupported() => ThrowNotSupported("Web security state");
-    private static void GetJavascriptClipboardNotSupported() => ThrowNotSupported("JavaScript clipboard state");
-    private static void GetMediaStreamNotSupported() => ThrowNotSupported("Media stream state");
-    private static void GetSmoothScrollingNotSupported() => ThrowNotSupported("Smooth scrolling state");
-    private static void GetIgnoreCertErrorsNotSupported() => ThrowNotSupported("Ignore cert errors state");
-    private static void GetNotificationsNotSupported() => ThrowNotSupported("Notifications enabled state");
-
-    // Center functionality
-    private static void CenterNotSupported() => ThrowNotSupported("Window centering");
 }

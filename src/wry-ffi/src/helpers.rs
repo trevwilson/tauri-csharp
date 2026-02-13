@@ -280,6 +280,9 @@ pub fn with_webview<R>(webview: *mut WryWebviewHandle, f: impl FnOnce(&wry::WebV
 use tao::dpi::{LogicalPosition, LogicalSize};
 
 pub fn write_position(target: *mut WryPoint, position: LogicalPosition<f64>) {
+    if target.is_null() {
+        return;
+    }
     unsafe {
         (*target).x = position.x;
         (*target).y = position.y;
@@ -287,6 +290,9 @@ pub fn write_position(target: *mut WryPoint, position: LogicalPosition<f64>) {
 }
 
 pub fn write_size(target: *mut WrySize, size: LogicalSize<f64>) {
+    if target.is_null() {
+        return;
+    }
     unsafe {
         (*target).width = size.width;
         (*target).height = size.height;

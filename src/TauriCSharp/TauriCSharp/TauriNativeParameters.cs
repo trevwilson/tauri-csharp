@@ -84,7 +84,7 @@ internal struct TauriNativeParameters
     [MarshalAs(UnmanagedType.FunctionPtr)] internal CppWebMessageReceivedDelegate WebMessageReceivedHandler;
 
     ///<summary>OPTIONAL: Names of custom URL Schemes. e.g. 'app', 'custom'. Array length must be 16. Default is none.</summary>
-    // TODO: Remove this limit when switching to wry-ffi
+    // Legacy field — wry-ffi handles custom schemes via WryCustomProtocolList without this limit
     [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.LPStr, SizeConst = 16)]
     internal string[] CustomSchemeNames;
 
@@ -201,7 +201,7 @@ internal struct TauriNativeParameters
         var windowIconFile = WindowIconFile;
 
         if (string.IsNullOrWhiteSpace(startUrl) && string.IsNullOrWhiteSpace(startString))
-            response.Add("An initial URL or HTML string must be supplied in StartUrl or StartString for the browser control to naviage to.");
+            response.Add("An initial URL or HTML string must be supplied in StartUrl or StartString for the browser control to navigate to.");
 
         if (Maximized && Minimized)
             response.Add("Window cannot be both maximized and minimized on startup.");

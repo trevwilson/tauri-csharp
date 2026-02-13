@@ -183,6 +183,12 @@ public partial class TauriWindow : IDisposable
         // Create webview
         _wryWebview = WryInterop.WebviewBuild(_wryWindow, in webviewConfig);
 
+        // Free URL allocation from webview config
+        if (webviewConfig.Url != IntPtr.Zero)
+        {
+            Marshal.FreeCoTaskMem(webviewConfig.Url);
+        }
+
         // Don't free webviewConfig protocol data yet - it needs to stay alive
         // The protocol state is stored in _protocolState
 
@@ -461,8 +467,15 @@ public partial class TauriWindow : IDisposable
         _eventLoopCallback = HandleEventLoopEvent;
         _callbackRegistry.Register(_wryWindow, _eventLoopCallback);
 
-        // Run the pump
-        WryInterop.EventLoopPump(eventLoop.DangerousGetRawHandle(), _eventLoopCallback, IntPtr.Zero);
+        try
+        {
+            // Run the pump
+            WryInterop.EventLoopPump(eventLoop.DangerousGetRawHandle(), _eventLoopCallback, IntPtr.Zero);
+        }
+        finally
+        {
+            _callbackRegistry.Unregister(_wryWindow);
+        }
     }
 
     /// <summary>
@@ -562,9 +575,9 @@ public partial class TauriWindow : IDisposable
                     break;
 
                 case "global-shortcut":
-                    if (root.TryGetProperty("id", out var shortcutIdEl))
+                    if (root.TryGetProperty("id", out var shortcutIdEl)
+                        && shortcutIdEl.TryGetUInt32(out var shortcutId))
                     {
-                        var shortcutId = (uint)shortcutIdEl.GetInt32();
                         GlobalShortcuts.DispatchShortcutEvent(shortcutId);
                     }
                     break;
@@ -690,20 +703,21 @@ public partial class TauriWindow : IDisposable
             // Free IPC state
             _ipcState?.Free();
             _ipcState = null;
-        }
 
-        // Unmanaged cleanup
-        if (_wryWebview != IntPtr.Zero)
-        {
-            WryInterop.WebviewFree(_wryWebview);
-            _wryWebview = IntPtr.Zero;
-        }
+            // Unmanaged cleanup — only safe during explicit disposal.
+            // From the finalizer, the native library may already be unloaded.
+            if (_wryWebview != IntPtr.Zero)
+            {
+                WryInterop.WebviewFree(_wryWebview);
+                _wryWebview = IntPtr.Zero;
+            }
 
-        if (_wryWindow != IntPtr.Zero)
-        {
-            WryInterop.WindowFree(_wryWindow);
-            _wryWindow = IntPtr.Zero;
-            _nativeInstance = IntPtr.Zero;
+            if (_wryWindow != IntPtr.Zero)
+            {
+                WryInterop.WindowFree(_wryWindow);
+                _wryWindow = IntPtr.Zero;
+                _nativeInstance = IntPtr.Zero;
+            }
         }
 
         _disposed = true;

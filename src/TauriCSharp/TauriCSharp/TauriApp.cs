@@ -92,9 +92,14 @@ public class TauriApp : IDisposable
         _appEventLoopCallback = HandleEventLoopEvent;
         callbackRegistry.Register(IntPtr.Zero, _appEventLoopCallback);
 
-        WryInterop.EventLoopPump(eventLoop.DangerousGetRawHandle(), _appEventLoopCallback, IntPtr.Zero);
-
-        callbackRegistry.Unregister(IntPtr.Zero);
+        try
+        {
+            WryInterop.EventLoopPump(eventLoop.DangerousGetRawHandle(), _appEventLoopCallback, IntPtr.Zero);
+        }
+        finally
+        {
+            callbackRegistry.Unregister(IntPtr.Zero);
+        }
     }
 
     /// <summary>
@@ -171,9 +176,9 @@ public class TauriApp : IDisposable
             // Handle global shortcut events at app level
             if (eventType == "global-shortcut")
             {
-                if (root.TryGetProperty("id", out var shortcutIdEl))
+                if (root.TryGetProperty("id", out var shortcutIdEl)
+                    && shortcutIdEl.TryGetUInt32(out var shortcutId))
                 {
-                    var shortcutId = (uint)shortcutIdEl.GetInt32();
                     GlobalShortcuts.DispatchShortcutEvent(shortcutId);
                 }
                 return;
@@ -190,6 +195,7 @@ public class TauriApp : IDisposable
                     if (window.ShouldExitFromApp)
                     {
                         UnregisterWindow(windowId);
+                        window.Dispose();
                     }
                 }
             }

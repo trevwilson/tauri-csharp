@@ -9,6 +9,7 @@ class Program
 {
     private static TauriWindow? _window;
     private static readonly StringBuilder _testResults = new();
+    private static readonly HashSet<string> _recordedTests = new();
     private static int _passCount = 0;
     private static int _failCount = 0;
     private static int _skipCount = 0;
@@ -773,7 +774,7 @@ class Program
     static void RecordTest(string testName, bool passed)
     {
         // Only record each test once
-        if (_testResults.ToString().Contains(testName)) return;
+        if (!_recordedTests.Add(testName)) return;
 
         var status = passed ? "PASS" : "FAIL";
         var symbol = passed ? "[+]" : "[-]";

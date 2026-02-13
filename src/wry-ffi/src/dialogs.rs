@@ -133,6 +133,7 @@ pub extern "C" fn wry_dialog_message(options: *const WryMessageDialogOptions) ->
                 tinyfiledialogs::message_box_ok_cancel(&title, &message, icon, tinyfiledialogs::OkCancel::Ok)
                     == tinyfiledialogs::OkCancel::Ok
             }
+            // YesNoCancel falls back to YesNo — tinyfiledialogs has no three-button dialog
             WryMessageDialogButtons::YesNo | WryMessageDialogButtons::YesNoCancel => {
                 tinyfiledialogs::message_box_yes_no(&title, &message, icon, tinyfiledialogs::YesNo::Yes)
                     == tinyfiledialogs::YesNo::Yes
