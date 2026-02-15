@@ -83,8 +83,8 @@ internal struct TauriNativeParameters
     ///<summary>SET BY TAURIWINDOW CONSTRUCTOR</summary>
     [MarshalAs(UnmanagedType.FunctionPtr)] internal CppWebMessageReceivedDelegate WebMessageReceivedHandler;
 
-    ///<summary>OPTIONAL: Names of custom URL Schemes. e.g. 'app', 'custom'. Array length must be 16. Default is none.</summary>
-    // Legacy field — wry-ffi handles custom schemes via WryCustomProtocolList without this limit
+    ///<summary>OPTIONAL: Names of custom URL Schemes. e.g. 'app', 'custom'. Default is none.
+    /// Legacy field — wry-ffi handles custom schemes via WryCustomProtocolList without this array size limit.</summary>
     [MarshalAs(UnmanagedType.ByValArray, ArraySubType = UnmanagedType.LPStr, SizeConst = 16)]
     internal string[] CustomSchemeNames;
 
@@ -102,7 +102,7 @@ internal struct TauriNativeParameters
     ///<summary>OPTIONAL: Initial window size in pixels. Default is 0. Can be overridden with UseOsDefaultSize.</summary>
     [MarshalAs(UnmanagedType.I4)] internal int Width;
 
-    ///<summary>OPTIONAL: Initial window size in pixels. Default is. Can be overridden with UseOsDefaultSize.</summary>
+    ///<summary>OPTIONAL: Initial window size in pixels. Default is 0. Can be overridden with UseOsDefaultSize.</summary>
     [MarshalAs(UnmanagedType.I4)] internal int Height;
 
     ///<summary>OPTIONAL: Initial zoom level of the native browser control. e.g.100 = 100%  Default is 100.</summary>
@@ -161,25 +161,25 @@ internal struct TauriNativeParameters
     ///<summary>OPTIONAL: If true, requests for access to local resources (camera, microphone, etc.) will automatically be granted. Default is true.</summary>
     [MarshalAs(UnmanagedType.I1)] internal bool GrantBrowserPermissions;
 
-    ///<summary>OPTIONAL: If true, browser control allows auto-playing media when page is loaded. Default is Default is true.</summary>
+    ///<summary>OPTIONAL: If true, browser control allows auto-playing media when page is loaded. Default is true.</summary>
     [MarshalAs(UnmanagedType.I1)] internal bool MediaAutoplayEnabled;
 
-    ///<summary>OPTIONAL: If true, browser allows access to the local file system. Default is Default is true.</summary>
+    ///<summary>OPTIONAL: If true, browser allows access to the local file system. Default is true.</summary>
     [MarshalAs(UnmanagedType.I1)] internal bool FileSystemAccessEnabled;
 
-    ///<summary>OPTIONAL: If true, ??? Default is Default is true.</summary>
+    ///<summary>OPTIONAL: If true, web security (same-origin policy, CORS) is enforced. Default is true.</summary>
     [MarshalAs(UnmanagedType.I1)] internal bool WebSecurityEnabled;
 
-    ///<summary>OPTIONAL: If true, ??? Default is v.</summary>
+    ///<summary>OPTIONAL: If true, JavaScript can access the system clipboard. Default is true.</summary>
     [MarshalAs(UnmanagedType.I1)] internal bool JavascriptClipboardAccessEnabled;
 
-    ///<summary>OPTIONAL: If true, ??? Default is Default is true.</summary>
+    ///<summary>OPTIONAL: If true, media stream (camera/microphone) APIs are enabled. Default is true.</summary>
     [MarshalAs(UnmanagedType.I1)] internal bool MediaStreamEnabled;
 
-    ///<summary>OPTIONAL: If true, ??? Default is Default is true.</summary>
+    ///<summary>OPTIONAL: If true, smooth scrolling is enabled. Default is true.</summary>
     [MarshalAs(UnmanagedType.I1)] internal bool SmoothScrollingEnabled;
 
-    ///<summary>OPTIONAL: If true, ??? Default is Default is false.</summary>
+    ///<summary>OPTIONAL: If true, SSL/TLS certificate errors are ignored. Useful for development only. Default is false.</summary>
     [MarshalAs(UnmanagedType.I1)] internal bool IgnoreCertificateErrorsEnabled;
 
     ///<summary>WINDOWS: OPTIONAL: If true, toast notifications are allowed on Windows by calling ShowNotification. Requires registering the app with Windows which is not always desirable as it creates shortcuts, etc. Default is true.</summary>

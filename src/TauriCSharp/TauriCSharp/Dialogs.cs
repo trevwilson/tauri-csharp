@@ -38,9 +38,14 @@ public static class Dialogs
             };
 
             var selection = WryInterop.DialogOpen(in options);
-            var paths = ExtractPaths(selection);
-            WryInterop.DialogSelectionFree(selection);
-            return paths;
+            try
+            {
+                return ExtractPaths(selection);
+            }
+            finally
+            {
+                WryInterop.DialogSelectionFree(selection);
+            }
         }
         finally
         {
@@ -77,9 +82,15 @@ public static class Dialogs
             };
 
             var selection = WryInterop.DialogSave(in options);
-            var paths = ExtractPaths(selection);
-            WryInterop.DialogSelectionFree(selection);
-            return paths.Length > 0 ? paths[0] : null;
+            try
+            {
+                var paths = ExtractPaths(selection);
+                return paths.Length > 0 ? paths[0] : null;
+            }
+            finally
+            {
+                WryInterop.DialogSelectionFree(selection);
+            }
         }
         finally
         {

@@ -827,11 +827,11 @@ class Program
 
         Log($"Autorun [{_autorunIndex}/{AutorunCommands.Length}]: {command} (delay={delayMs}ms)");
 
-        // Escape single quotes in command for JS string literal
-        var escapedCommand = command.Replace("'", "\\'");
+        // JSON serialization produces a properly escaped JS string literal (with quotes)
+        var escapedCommand = System.Text.Json.JsonSerializer.Serialize(command);
 
         // Self-advancing chain: send the command, then after delay send autorun-next
         _window.ExecuteScript(
-            $"sendMessage('{escapedCommand}'); setTimeout(() => sendMessage('autorun-next'), {delayMs});");
+            $"sendMessage({escapedCommand}); setTimeout(() => sendMessage('autorun-next'), {delayMs});");
     }
 }

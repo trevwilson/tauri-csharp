@@ -41,8 +41,11 @@ public static class GlobalShortcuts
     /// <returns>True if successfully unregistered.</returns>
     public static bool Unregister(uint shortcutId)
     {
+        if (!WryInterop.ShortcutUnregister(shortcutId))
+            return false;
+
         _callbacks.TryRemove(shortcutId, out _);
-        return WryInterop.ShortcutUnregister(shortcutId);
+        return true;
     }
 
     /// <summary>

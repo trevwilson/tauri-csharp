@@ -108,6 +108,14 @@ pub extern "C" fn wry_dialog_selection_free(selection: WryDialogSelection) {
 // Message Dialogs
 // ============================================================================
 
+fn tinyfd_icon(level: WryMessageDialogLevel) -> tinyfiledialogs::MessageBoxIcon {
+    match level {
+        WryMessageDialogLevel::Info => tinyfiledialogs::MessageBoxIcon::Info,
+        WryMessageDialogLevel::Warning => tinyfiledialogs::MessageBoxIcon::Warning,
+        WryMessageDialogLevel::Error => tinyfiledialogs::MessageBoxIcon::Error,
+    }
+}
+
 #[no_mangle]
 pub extern "C" fn wry_dialog_message(options: *const WryMessageDialogOptions) -> bool {
     guard_panic_bool(|| {
@@ -118,11 +126,7 @@ pub extern "C" fn wry_dialog_message(options: *const WryMessageDialogOptions) ->
         let title = opt_cstring(options.title).unwrap_or_else(|| "Message".to_string());
         let message = opt_cstring(options.message).unwrap_or_default();
 
-        let icon = match options.level {
-            WryMessageDialogLevel::Info => tinyfiledialogs::MessageBoxIcon::Info,
-            WryMessageDialogLevel::Warning => tinyfiledialogs::MessageBoxIcon::Warning,
-            WryMessageDialogLevel::Error => tinyfiledialogs::MessageBoxIcon::Error,
-        };
+        let icon = tinyfd_icon(options.level);
 
         match options.buttons {
             WryMessageDialogButtons::Ok => {
@@ -151,12 +155,7 @@ pub extern "C" fn wry_dialog_confirm(options: *const WryConfirmDialogOptions) ->
 
         let title = opt_cstring(options.title).unwrap_or_else(|| "Confirm".to_string());
         let message = opt_cstring(options.message).unwrap_or_default();
-
-        let icon = match options.level {
-            WryMessageDialogLevel::Info => tinyfiledialogs::MessageBoxIcon::Info,
-            WryMessageDialogLevel::Warning => tinyfiledialogs::MessageBoxIcon::Warning,
-            WryMessageDialogLevel::Error => tinyfiledialogs::MessageBoxIcon::Error,
-        };
+        let icon = tinyfd_icon(options.level);
 
         tinyfiledialogs::message_box_ok_cancel(&title, &message, icon, tinyfiledialogs::OkCancel::Ok)
             == tinyfiledialogs::OkCancel::Ok
@@ -172,12 +171,7 @@ pub extern "C" fn wry_dialog_ask(options: *const WryAskDialogOptions) -> bool {
 
         let title = opt_cstring(options.title).unwrap_or_else(|| "Question".to_string());
         let message = opt_cstring(options.message).unwrap_or_default();
-
-        let icon = match options.level {
-            WryMessageDialogLevel::Info => tinyfiledialogs::MessageBoxIcon::Info,
-            WryMessageDialogLevel::Warning => tinyfiledialogs::MessageBoxIcon::Warning,
-            WryMessageDialogLevel::Error => tinyfiledialogs::MessageBoxIcon::Error,
-        };
+        let icon = tinyfd_icon(options.level);
 
         tinyfiledialogs::message_box_yes_no(&title, &message, icon, tinyfiledialogs::YesNo::Yes)
             == tinyfiledialogs::YesNo::Yes

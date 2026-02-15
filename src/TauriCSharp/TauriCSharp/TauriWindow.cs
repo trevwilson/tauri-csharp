@@ -2476,6 +2476,10 @@ public partial class TauriWindow
                     Log($"***\n{ex.Message}\n{ex.StackTrace}\nError #{lastError}");
                     throw new TauriInitializationException($"Native code exception. Error # {lastError}  See inner exception for details.", [ex.Message]);
                 }
+                finally
+                {
+                    Dispose();
+                }
             }
         }
         else

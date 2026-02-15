@@ -98,21 +98,30 @@ pub fn write_string_to_buffer(
 pub fn guard_panic<T>(f: impl FnOnce() -> *mut T) -> *mut T {
     match catch_unwind(AssertUnwindSafe(f)) {
         Ok(ptr) => ptr,
-        Err(_) => std::ptr::null_mut(),
+        Err(e) => {
+            eprintln!("[wry-ffi] panic caught at FFI boundary: {:?}", e);
+            std::ptr::null_mut()
+        }
     }
 }
 
 pub fn guard_panic_bool(f: impl FnOnce() -> bool) -> bool {
     match catch_unwind(AssertUnwindSafe(f)) {
         Ok(result) => result,
-        Err(_) => false,
+        Err(e) => {
+            eprintln!("[wry-ffi] panic caught at FFI boundary: {:?}", e);
+            false
+        }
     }
 }
 
 pub fn guard_panic_value<T: Default>(f: impl FnOnce() -> T) -> T {
     match catch_unwind(AssertUnwindSafe(f)) {
         Ok(value) => value,
-        Err(_) => T::default(),
+        Err(e) => {
+            eprintln!("[wry-ffi] panic caught at FFI boundary: {:?}", e);
+            T::default()
+        }
     }
 }
 
