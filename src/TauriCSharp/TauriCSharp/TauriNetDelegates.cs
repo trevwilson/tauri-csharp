@@ -32,8 +32,9 @@ public partial class TauriWindow
     /// <param name="top">Position from top in pixels</param>
     internal void OnLocationChanged(int left, int top)
     {
-        var location = new Point(left, top);
-        WindowLocationChanged?.Invoke(this, location);
+        _startupParameters.Left = left;
+        _startupParameters.Top = top;
+        WindowLocationChanged?.Invoke(this, new Point(left, top));
     }
 
     public event EventHandler<Size>? WindowSizeChanged;
@@ -56,8 +57,9 @@ public partial class TauriWindow
     /// </summary>
     internal void OnSizeChanged(int width, int height)
     {
-        var size = new Size(width, height);
-        WindowSizeChanged?.Invoke(this, size);
+        _startupParameters.Width = width;
+        _startupParameters.Height = height;
+        WindowSizeChanged?.Invoke(this, new Size(width, height));
     }
 
     public event EventHandler? WindowFocusIn;
@@ -103,6 +105,8 @@ public partial class TauriWindow
     /// </summary>
     internal void OnMaximized()
     {
+        _startupParameters.Maximized = true;
+        _startupParameters.Minimized = false;
         WindowMaximized?.Invoke(this, EventArgs.Empty);
     }
 
@@ -126,6 +130,8 @@ public partial class TauriWindow
     /// </summary>
     internal void OnRestored()
     {
+        _startupParameters.Maximized = false;
+        _startupParameters.Minimized = false;
         WindowRestored?.Invoke(this, EventArgs.Empty);
     }
 
@@ -172,6 +178,8 @@ public partial class TauriWindow
     /// </summary>
     internal void OnMinimized()
     {
+        _startupParameters.Minimized = true;
+        _startupParameters.Maximized = false;
         WindowMinimized?.Invoke(this, EventArgs.Empty);
     }
 
@@ -253,7 +261,7 @@ public partial class TauriWindow
     /// </summary>
     internal void OnWindowCreating()
     {
-        WindowCreating?.Invoke(this, null);
+        WindowCreating?.Invoke(this, EventArgs.Empty);
     }
 
     public event EventHandler? WindowCreated;
@@ -276,7 +284,7 @@ public partial class TauriWindow
     /// </summary>
     internal void OnWindowCreated()
     {
-        WindowCreated?.Invoke(this, null);
+        WindowCreated?.Invoke(this, EventArgs.Empty);
     }
 
     /// <summary>
@@ -315,7 +323,7 @@ public partial class TauriWindow
             return true; // Allow by default
 
         // Invoke all handlers; if any return false, cancel navigation
-        foreach (NavigationDelegate handler in handlers.GetInvocationList())
+        foreach (NavigationDelegate handler in handlers.GetInvocationList().Cast<NavigationDelegate>())
         {
             if (!handler(this, url))
                 return false;
@@ -326,7 +334,7 @@ public partial class TauriWindow
     //NOTE: There is 1 callback from C++ to C# which is automatically registered. The .NET callback appropriate for the custom scheme is handled in OnCustomScheme().
 
     public delegate Stream? NetCustomSchemeDelegate(object sender, string scheme, string url, out string contentType);
-    internal Dictionary<string, NetCustomSchemeDelegate> CustomSchemes = new Dictionary<string, NetCustomSchemeDelegate>();
+    internal Dictionary<string, NetCustomSchemeDelegate?> CustomSchemes = [];
 
     /// <summary>
     /// Registers user-defined custom schemes (other than 'http', 'https' and 'file') and handler methods to receive callbacks
@@ -395,13 +403,13 @@ public partial class TauriWindow
         if (colonPos < 0)
             throw new TauriSchemeException($"Invalid URL '{url}': missing scheme separator (':').");
 
-        var scheme = url.Substring(0, colonPos).ToLower();
+        var scheme = url[..colonPos].ToLower();
 
-        if (!CustomSchemes.ContainsKey(scheme))
+        if (!CustomSchemes.TryGetValue(scheme, out var schemeHandler))
             throw new TauriSchemeException($"No handler registered for scheme '{scheme}'.", scheme, url);
 
         contentType = "";
-        var responseStream = CustomSchemes[scheme]?.Invoke(this, scheme, url, out contentType);
+        var responseStream = schemeHandler?.Invoke(this, scheme, url, out contentType);
 
         if (responseStream == null)
         {

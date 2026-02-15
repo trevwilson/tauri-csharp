@@ -1,5 +1,5 @@
 // wry-ffi C# bindings - SafeHandle for WryWindow
-// Ensures proper cleanup of window handles and their callbacks
+// Updated for Velox-based FFI with separate window and webview handles
 
 using System.Runtime.InteropServices;
 using TauriCSharp.Interop;
@@ -7,27 +7,18 @@ using TauriCSharp.Interop;
 namespace TauriCSharp.Handles;
 
 /// <summary>
-/// SafeHandle wrapper for WryWindow handles.
-/// Ensures wry_window_destroy is called when the handle is released,
-/// and unregisters any pinned callbacks from the registry.
+/// SafeHandle wrapper for WryWindowHandle (the native window).
+/// Ensures wry_window_free is called when the handle is released.
 /// </summary>
-internal sealed class WryWindowHandle : SafeHandle
+internal sealed class WryNativeWindowHandle : SafeHandle
 {
     private readonly WryCallbackRegistry? _callbackRegistry;
 
-    /// <summary>
-    /// Creates a new invalid handle.
-    /// </summary>
-    public WryWindowHandle() : base(IntPtr.Zero, ownsHandle: true)
+    public WryNativeWindowHandle() : base(IntPtr.Zero, ownsHandle: true)
     {
     }
 
-    /// <summary>
-    /// Creates a handle wrapping an existing native pointer.
-    /// </summary>
-    /// <param name="handle">The native window pointer</param>
-    /// <param name="callbackRegistry">Optional callback registry for cleanup</param>
-    private WryWindowHandle(IntPtr handle, WryCallbackRegistry? callbackRegistry)
+    private WryNativeWindowHandle(IntPtr handle, WryCallbackRegistry? callbackRegistry)
         : base(IntPtr.Zero, ownsHandle: true)
     {
         SetHandle(handle);
@@ -37,42 +28,114 @@ internal sealed class WryWindowHandle : SafeHandle
     public override bool IsInvalid => handle == IntPtr.Zero;
 
     /// <summary>
-    /// Creates a new WryWindow and returns a SafeHandle wrapper.
-    /// Must be called on the main thread.
+    /// Creates a new window using the event loop and config.
     /// </summary>
-    /// <param name="appHandle">The app handle</param>
-    /// <param name="parameters">Window creation parameters</param>
-    /// <param name="callbackRegistry">Optional callback registry for tracking pinned delegates</param>
-    /// <returns>A valid WryWindowHandle, or throws on failure</returns>
-    /// <exception cref="WryException">Thrown if window creation fails</exception>
-    public static WryWindowHandle Create(
-        IntPtr appHandle,
-        in WryWindowParams parameters,
+    public static WryNativeWindowHandle Create(
+        WryEventLoopHandle eventLoop,
+        in WryWindowConfig config,
         WryCallbackRegistry? callbackRegistry = null)
     {
-        var ptr = WryInterop.WindowCreate(appHandle, in parameters);
+        var ptr = WryInterop.WindowBuild(eventLoop.DangerousGetRawHandle(), in config);
         if (ptr == IntPtr.Zero)
         {
-            var error = Marshal.PtrToStringUTF8(WryInterop.GetLastError());
-            throw new WryException(error ?? "Failed to create window", WryErrorCode.WindowCreationFailed);
+            throw new WryException("Failed to create window", WryErrorCode.WindowCreationFailed);
         }
-        return new WryWindowHandle(ptr, callbackRegistry);
+        return new WryNativeWindowHandle(ptr, callbackRegistry);
     }
 
-    /// <summary>
-    /// Gets the raw handle value. Use with caution.
-    /// </summary>
     public IntPtr DangerousGetRawHandle() => handle;
 
     protected override bool ReleaseHandle()
     {
         if (handle != IntPtr.Zero)
         {
-            // First unregister callbacks to prevent dangling delegate issues
             _callbackRegistry?.Unregister(handle);
+            WryInterop.WindowFree(handle);
+        }
+        return true;
+    }
+}
 
-            // Then destroy the window
-            WryInterop.WindowDestroy(handle);
+/// <summary>
+/// SafeHandle wrapper for WryWebviewHandle.
+/// Ensures wry_webview_free is called when the handle is released.
+/// </summary>
+internal sealed class WryNativeWebviewHandle : SafeHandle
+{
+    public WryNativeWebviewHandle() : base(IntPtr.Zero, ownsHandle: true)
+    {
+    }
+
+    private WryNativeWebviewHandle(IntPtr handle) : base(IntPtr.Zero, ownsHandle: true)
+    {
+        SetHandle(handle);
+    }
+
+    public override bool IsInvalid => handle == IntPtr.Zero;
+
+    /// <summary>
+    /// Creates a new webview in the given window.
+    /// </summary>
+    public static WryNativeWebviewHandle Create(
+        WryNativeWindowHandle window,
+        in WryWebviewConfig config)
+    {
+        var ptr = WryInterop.WebviewBuild(window.DangerousGetRawHandle(), in config);
+        if (ptr == IntPtr.Zero)
+        {
+            throw new WryException("Failed to create webview", WryErrorCode.WebviewCreationFailed);
+        }
+        return new WryNativeWebviewHandle(ptr);
+    }
+
+    public IntPtr DangerousGetRawHandle() => handle;
+
+    protected override bool ReleaseHandle()
+    {
+        if (handle != IntPtr.Zero)
+        {
+            WryInterop.WebviewFree(handle);
+        }
+        return true;
+    }
+}
+
+// Legacy alias - maps to the old combined window approach
+// Will be removed after migration
+[System.Obsolete("Use WryNativeWindowHandle + WryNativeWebviewHandle instead")]
+internal sealed class WryWindowHandle : SafeHandle
+{
+    private readonly WryCallbackRegistry? _callbackRegistry;
+
+    public WryWindowHandle() : base(IntPtr.Zero, ownsHandle: true)
+    {
+    }
+
+    private WryWindowHandle(IntPtr handle, WryCallbackRegistry? callbackRegistry)
+        : base(IntPtr.Zero, ownsHandle: true)
+    {
+        SetHandle(handle);
+        _callbackRegistry = callbackRegistry;
+    }
+
+    public override bool IsInvalid => handle == IntPtr.Zero;
+
+    // This method signature is kept for backward compatibility during migration
+    // but it can't actually work without WryWindowParams which no longer exists
+    // Callers should migrate to using WryNativeWindowHandle directly
+    public static WryWindowHandle CreateLegacy(IntPtr handle, WryCallbackRegistry? callbackRegistry = null)
+    {
+        return new WryWindowHandle(handle, callbackRegistry);
+    }
+
+    public IntPtr DangerousGetRawHandle() => handle;
+
+    protected override bool ReleaseHandle()
+    {
+        if (handle != IntPtr.Zero)
+        {
+            _callbackRegistry?.Unregister(handle);
+            WryInterop.WindowFree(handle);
         }
         return true;
     }

@@ -21,7 +21,7 @@ public class TauriInitializationException : TauriException
 
     public TauriInitializationException(string message) : base(message)
     {
-        ValidationErrors = Array.Empty<string>();
+        ValidationErrors = [];
     }
 
     public TauriInitializationException(string message, IEnumerable<string> validationErrors)
@@ -33,7 +33,7 @@ public class TauriInitializationException : TauriException
     public TauriInitializationException(string message, Exception innerException)
         : base(message, innerException)
     {
-        ValidationErrors = Array.Empty<string>();
+        ValidationErrors = [];
     }
 }
 
@@ -78,7 +78,7 @@ public class TauriIpcException : TauriException
 
     public TauriIpcException(string message) : base(message) { }
 
-    public TauriIpcException(string message, string correlationId) : base(message)
+    public TauriIpcException(string message, string? correlationId) : base(message)
     {
         CorrelationId = correlationId;
     }
@@ -90,15 +90,10 @@ public class TauriIpcException : TauriException
 /// <summary>
 /// Exception thrown when a platform-specific operation is not supported.
 /// </summary>
-public class TauriPlatformException : TauriException
+public class TauriPlatformException(string message, string platform) : TauriException(message)
 {
     /// <summary>
     /// The platform where the operation was attempted.
     /// </summary>
-    public string Platform { get; }
-
-    public TauriPlatformException(string message, string platform) : base(message)
-    {
-        Platform = platform;
-    }
+    public string Platform { get; } = platform;
 }

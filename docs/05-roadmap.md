@@ -57,7 +57,7 @@ Renamed and improved codebase ready for native layer swap.
 
 ---
 
-## Phase 3: C# Bindings & Validation 🔄 IN PROGRESS
+## Phase 3: C# Bindings & Validation ✅ COMPLETE
 
 ### Goals
 - Replace Photino.Native with wry-ffi
@@ -67,15 +67,13 @@ Renamed and improved codebase ready for native layer swap.
 ### Tasks
 
 - [x] **3.1 P/Invoke Bindings**
-  - [x] Create `WryInterop.cs` with LibraryImport declarations (40 functions)
-  - [x] Implement struct marshaling (WryWindowParams, WrySize, WryPosition, WryResult)
+  - [x] Create `WryInterop.cs` with LibraryImport declarations
+  - [x] Implement struct marshaling
   - [x] Implement callback marshaling (WryDelegates.cs)
   - [x] WryCallbackRegistry for GCHandle pinning (prevents delegate GC)
-  - [x] WryNativeString for proper string cleanup (wry_string_free)
 
 - [x] **3.2 TauriWindow Refactor**
   - [x] Replace all Photino P/Invoke calls with Wry calls
-  - [x] SafeHandle wrappers (WryAppHandle, WryWindowHandle)
   - [x] Handle callback registration and prevent GC
   - [x] IDisposable implementation with proper cleanup
 
@@ -88,12 +86,12 @@ Renamed and improved codebase ready for native layer swap.
   - [x] CurrentUrl property - get webview URL
   - [x] NavigationStarting event - can cancel navigation
 
-- [ ] **3.4 Testing** ⬅️ NEXT
-  - [ ] Basic smoke test app (window opens, loads URL, closes)
-  - [ ] IPC round-trip test (C# → JS → C#)
-  - [ ] Custom protocol test (app:// scheme)
-  - [ ] Callback tests (resize, move, focus events fire)
-  - [ ] Memory test (create/destroy windows in loop)
+- [x] **3.4 Testing**
+  - [x] Test app with interactive UI (TauriCSharp.TestApp)
+  - [x] IPC round-trip test (ping/pong)
+  - [x] Custom protocol test (app:// scheme)
+  - [x] Window events (resize, move, focus, close)
+  - [x] WebView tests (execute script, navigate, devtools)
 
 - [ ] **3.5 Local NuGet Package**
   - [ ] Native library resolver for multi-platform loading
@@ -105,7 +103,7 @@ Validated `TauriCSharp` that works on current platform, ready for feature expans
 
 ---
 
-## Phase 4: Extended Features
+## Phase 4: Extended Features 🔄 IN PROGRESS
 
 ### Goals
 - Add features Photino lacked via additional Rust crates
@@ -120,56 +118,62 @@ Velox (Swift Tauri port) uses these crates beyond wry/tao:
 
 ### Tasks
 
-- [ ] **4.1 File Dialogs (rfd crate)**
-  - [ ] Add `rfd` dependency to wry-ffi Cargo.toml
-  - [ ] Implement FFI: `wry_dialog_open_file`, `wry_dialog_save_file`, `wry_dialog_open_folder`
-  - [ ] Implement FFI: `wry_dialog_message` (message boxes)
-  - [ ] C# P/Invoke bindings in WryInterop.cs
-  - [ ] TauriWindow methods: ShowOpenFile, ShowSaveFile, ShowOpenFolder, ShowMessage
+- [x] **4.1 Dialogs**
+  - [x] Add `rfd` and `tinyfiledialogs` dependencies
+  - [x] Implement FFI: file open/save dialogs (rfd)
+  - [x] Implement FFI: message dialogs (tinyfiledialogs - rfd fails on Linux/WSL2)
+  - [x] C# P/Invoke bindings in WryInterop.cs
+  - [x] Public `Dialogs` static class with clean API
+  - [x] Test coverage in test app
 
-- [ ] **4.2 System Tray (tray-icon crate)**
-  - [ ] Add `tray-icon` dependency to wry-ffi
-  - [ ] Implement FFI: `wry_tray_create`, `wry_tray_destroy`, `wry_tray_set_icon`, `wry_tray_set_tooltip`
-  - [ ] Implement tray click/menu callbacks
+- [ ] **4.2 System Tray (tray-icon crate)** — macOS only
+  - [x] Add `tray-icon` dependency to wry-ffi
+  - [x] Implement Rust FFI layer
   - [ ] C# P/Invoke bindings
   - [ ] TauriTray class with C# API
+  - Note: Returns no-op stubs on Linux/Windows
 
-- [ ] **4.3 Native Menus (muda crate)**
-  - [ ] Add `muda` dependency to wry-ffi
-  - [ ] Implement FFI: menu creation, items, submenus, separators
-  - [ ] Implement menu action callbacks
+- [ ] **4.3 Native Menus (muda crate)** — macOS only
+  - [x] Add `muda` dependency to wry-ffi
+  - [x] Implement Rust FFI layer
   - [ ] C# P/Invoke bindings
   - [ ] TauriMenu builder API
-  - [ ] Window menu bar support
-  - [ ] Context menu support
+  - Note: Returns no-op stubs on Linux/Windows
 
-- [ ] **4.4 Monitor/Display Info (tao built-in)**
-  - [ ] Implement FFI: `wry_get_monitors`, `wry_get_primary_monitor`
-  - [ ] Implement FFI: `wry_window_get_scale_factor` (DPI)
-  - [ ] C# P/Invoke bindings
-  - [ ] TauriWindow.GetMonitors(), ScreenDpi property
+- [x] **4.4 Monitor/Display Info (tao built-in)**
+  - [x] Rust FFI already existed: `wry_window_current_monitor`, `wry_window_primary_monitor`, `wry_window_available_monitors`, `wry_window_scale_factor`
+  - [x] C# P/Invoke bindings (already in WryInterop.cs)
+  - [x] Wire `Monitors`, `MainMonitor`, `CurrentMonitor`, `ScreenDpi` properties via JSON parsing
+  - [x] Add `Name` property to `Monitor` struct
 
-- [ ] **4.5 Window Icon (tao built-in)**
-  - [ ] Implement FFI: `wry_window_set_icon_file`, `wry_window_set_icon_rgba`
-  - [ ] C# P/Invoke bindings
-  - [ ] TauriWindow.SetIcon() method
+- [x] **4.5 Window Icon (tao built-in)**
+  - [x] Add `image` crate (PNG/ICO/JPEG loading)
+  - [x] Implement FFI: `wry_window_set_icon_file`, `wry_window_set_icon_rgba`, `wry_window_clear_icon`
+  - [x] C# P/Invoke bindings
+  - [x] `TauriWindow.SetIcon()`, `ClearIcon()`, `IconFile` setter
 
-- [ ] **4.6 Notifications**
-  - [ ] Evaluate: `notify-rust` crate or platform-native
-  - [ ] Implement FFI: `wry_notification_show`
-  - [ ] C# P/Invoke bindings
-  - [ ] TauriWindow.SendNotification() (fix current stub)
+- [x] **4.6 Notifications**
+  - [x] Add `notify-rust` crate (D-Bus on Linux, native on Windows/macOS)
+  - [x] Implement FFI: `wry_notification_show` with timeout and urgency support
+  - [x] C# P/Invoke bindings
+  - [x] Public `Notifications.Show()` static API (follows `Dialogs` pattern)
+  - Note: Requires notification daemon; fails gracefully on WSL2
 
-- [ ] **4.7 Global Shortcuts (tao built-in)**
-  - [ ] Implement FFI: `wry_register_global_shortcut`, `wry_unregister_global_shortcut`
-  - [ ] Implement shortcut triggered callback
-  - [ ] C# P/Invoke bindings
-  - [ ] TauriApp.RegisterGlobalShortcut()
+- [x] **4.7 Global Shortcuts (global-hotkey crate)**
+  - [x] Add `global-hotkey` crate
+  - [x] Implement FFI: `wry_shortcut_register`, `wry_shortcut_unregister`, `wry_shortcut_unregister_all`
+  - [x] Deliver shortcut events via JSON event loop polling
+  - [x] C# P/Invoke bindings
+  - [x] Public `GlobalShortcuts` static class with callback dispatch
+  - Note: On WSL2/Wayland, only captures keys when X11 apps have focus
 
-- [ ] **4.8 Multi-Window**
-  - [ ] TauriApp managing multiple windows
-  - [ ] Window relationships (parent, modal)
-  - [ ] Cross-window communication
+- [x] **4.8 Multi-Window**
+  - [x] `TauriApp` singleton managing multiple windows via `ConcurrentDictionary`
+  - [x] `TauriApp.Run()` for multi-window event loop with per-window event routing
+  - [x] Dynamic window creation after `Run()` via `TauriApp.InitializeWindow()`
+  - [x] Child window event routing when main window uses `WaitForClose()`
+  - [x] Window relationships: `SetParent()` (transient_for/owner) and `SetModal()` (blocks parent)
+  - [x] Cross-window communication: `TauriApp.SendToWindow()`, `Broadcast()`, `GetWindow()`, `Windows`
 
 ### Deliverable
 Feature-rich desktop framework competitive with Tauri and Velox (minus mobile).
@@ -290,7 +294,9 @@ Cross-platform framework: Windows, macOS, Linux, iOS, Android.
 | rfd | 0.14+ | MIT | File dialogs (open/save/folder/message) |
 | tray-icon | 0.21+ | Apache 2.0 | System tray |
 | muda | 0.17+ | Apache 2.0 | Native menus |
-| notify-rust | TBD | MIT/Apache 2.0 | System notifications (optional) |
+| notify-rust | 4 | MIT/Apache 2.0 | Desktop notifications (D-Bus/native) |
+| global-hotkey | 0.6 | Apache 2.0 | System-wide keyboard shortcuts |
+| image | 0.25 | MIT | Icon loading (PNG/ICO/JPEG → RGBA) |
 
 Reference: [Velox runtime-wry-ffi](https://github.com/velox-apps/velox) uses same crate stack.
 

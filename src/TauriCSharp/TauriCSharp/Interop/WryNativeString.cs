@@ -15,14 +15,9 @@ namespace TauriCSharp.Interop;
 /// return str.Value;
 /// </code>
 /// </summary>
-internal readonly struct WryNativeString : IDisposable
+internal readonly struct WryNativeString(IntPtr ptr) : IDisposable
 {
-    private readonly IntPtr _ptr;
-
-    public WryNativeString(IntPtr ptr)
-    {
-        _ptr = ptr;
-    }
+    private readonly IntPtr _ptr = ptr;
 
     /// <summary>
     /// Gets the managed string value, or null if the pointer is null.

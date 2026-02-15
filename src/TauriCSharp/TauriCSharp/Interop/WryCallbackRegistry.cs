@@ -96,14 +96,9 @@ internal sealed class WryCallbackRegistry : IDisposable
 /// <summary>
 /// Scoped GCHandle wrapper for short-lived delegate pinning (e.g., wry_invoke_sync).
 /// </summary>
-internal readonly struct PinnedDelegate : IDisposable
+internal readonly struct PinnedDelegate(Delegate callback) : IDisposable
 {
-    private readonly GCHandle _handle;
-
-    public PinnedDelegate(Delegate callback)
-    {
-        _handle = GCHandle.Alloc(callback);
-    }
+    private readonly GCHandle _handle = GCHandle.Alloc(callback);
 
     public void Dispose()
     {

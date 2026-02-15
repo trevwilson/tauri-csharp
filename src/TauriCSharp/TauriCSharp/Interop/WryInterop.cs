@@ -1,5 +1,5 @@
 // wry-ffi C# bindings - P/Invoke declarations
-// All FFI functions from the wry-ffi crate
+// All FFI functions from the Velox-based wry-ffi crate
 
 using System.Runtime.InteropServices;
 
@@ -7,328 +7,697 @@ namespace TauriCSharp.Interop;
 
 /// <summary>
 /// P/Invoke declarations for wry-ffi native library.
-/// Uses DllImport for methods involving structs with bool fields (runtime marshalling required).
+/// Based on Velox's runtime-wry-ffi with wry_* function names.
 /// </summary>
 internal static partial class WryInterop
 {
-    private const string LibraryName = "wry_ffi";
+    private const string WryLib = "wry_ffi";
 
     // ==========================================================================
-    // App Lifecycle
-    // ==========================================================================
-
-    /// <summary>
-    /// Initialize the application. Must be called first, on main thread.
-    /// </summary>
-    /// <returns>App handle or NULL on failure</returns>
-    [LibraryImport(LibraryName, EntryPoint = "wry_app_create")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial IntPtr AppCreate();
-
-    /// <summary>
-    /// Run the event loop. Blocks until all windows closed or wry_app_quit called.
-    /// Must be called on main thread.
-    /// </summary>
-    [DllImport(LibraryName, EntryPoint = "wry_app_run", CallingConvention = CallingConvention.Cdecl)]
-    public static extern WryResult AppRun(IntPtr app);
-
-    /// <summary>
-    /// Request app to quit.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_app_quit")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void AppQuit(IntPtr app);
-
-    /// <summary>
-    /// Destroy app and free resources.
-    /// The app handle must not be used after this call.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_app_destroy")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void AppDestroy(IntPtr app);
-
-    /// <summary>
-    /// Get last error message (valid until next wry_* call).
-    /// </summary>
-    /// <returns>Pointer to error string (do not free)</returns>
-    [LibraryImport(LibraryName, EntryPoint = "wry_get_last_error")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial IntPtr GetLastError();
-
-    /// <summary>
-    /// Get version string.
-    /// </summary>
-    /// <returns>Pointer to version string (do not free)</returns>
-    [LibraryImport(LibraryName, EntryPoint = "wry_version")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial IntPtr GetVersion();
-
-    // ==========================================================================
-    // Window Management
+    // Version/ABI Info
     // ==========================================================================
 
     /// <summary>
-    /// Create a new window with webview.
-    /// Must be called on main thread with a valid app handle.
+    /// Get the ABI version number for compatibility checking.
     /// </summary>
-    [DllImport(LibraryName, EntryPoint = "wry_window_create", CallingConvention = CallingConvention.Cdecl)]
-    public static extern IntPtr WindowCreate(IntPtr app, in WryWindowParams parameters);
+    [LibraryImport(WryLib, EntryPoint = "wry_ffi_abi_version")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial uint FfiAbiVersion();
 
     /// <summary>
-    /// Destroy window and free resources.
-    /// Thread-safe - dispatches via event loop.
+    /// Get the library name.
     /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_destroy")]
+    [LibraryImport(WryLib, EntryPoint = "wry_library_name")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowDestroy(IntPtr window);
+    public static partial IntPtr LibraryName();
+
+    /// <summary>
+    /// Get the crate version string.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_crate_version")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial IntPtr CrateVersion();
+
+    /// <summary>
+    /// Get the webview version string.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_version")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial IntPtr WebViewVersion();
 
     // ==========================================================================
-    // WebView Operations
-    // ==========================================================================
-
-    /// <summary>
-    /// Navigate to URL.
-    /// </summary>
-    [DllImport(LibraryName, EntryPoint = "wry_webview_navigate", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-    public static extern WryResult WebViewNavigate(IntPtr window, [MarshalAs(UnmanagedType.LPUTF8Str)] string url);
-
-    /// <summary>
-    /// Load HTML content directly.
-    /// </summary>
-    [DllImport(LibraryName, EntryPoint = "wry_webview_load_html", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-    public static extern WryResult WebViewLoadHtml(IntPtr window, [MarshalAs(UnmanagedType.LPUTF8Str)] string html);
-
-    /// <summary>
-    /// Execute JavaScript in webview context.
-    /// </summary>
-    [DllImport(LibraryName, EntryPoint = "wry_webview_evaluate_script", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-    public static extern WryResult WebViewEvaluateScript(IntPtr window, [MarshalAs(UnmanagedType.LPUTF8Str)] string script);
-
-    /// <summary>
-    /// Send message to JavaScript (calls window.tauri.__receive).
-    /// Thread-safe - dispatches via event loop.
-    /// </summary>
-    [DllImport(LibraryName, EntryPoint = "wry_webview_send_message", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-    public static extern WryResult WebViewSendMessage(IntPtr window, [MarshalAs(UnmanagedType.LPUTF8Str)] string message);
-
-    /// <summary>
-    /// Get current URL. Caller must free with StringFree.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_webview_get_url")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial IntPtr WebViewGetUrl(IntPtr window);
-
-    /// <summary>
-    /// Set zoom level (1.0 = 100%).
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_webview_set_zoom")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WebViewSetZoom(IntPtr window, double zoom);
-
-    /// <summary>
-    /// Open devtools (if enabled).
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_webview_open_devtools")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WebViewOpenDevtools(IntPtr window);
-
-    /// <summary>
-    /// Close devtools.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_webview_close_devtools")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WebViewCloseDevtools(IntPtr window);
-
-    // ==========================================================================
-    // Window Operations
+    // Event Loop Creation/Destruction
     // ==========================================================================
 
     /// <summary>
-    /// Show/hide window.
+    /// Create a new event loop. Must be called on main thread.
     /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_set_visible")]
+    [LibraryImport(WryLib, EntryPoint = "wry_event_loop_new")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowSetVisible(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool visible);
+    public static partial IntPtr EventLoopNew();
 
     /// <summary>
-    /// Get window visibility.
+    /// Free the event loop.
     /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_is_visible")]
+    [LibraryImport(WryLib, EntryPoint = "wry_event_loop_free")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial void EventLoopFree(IntPtr eventLoop);
+
+    /// <summary>
+    /// Create a proxy handle for the event loop (for cross-thread communication).
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_event_loop_create_proxy")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial IntPtr EventLoopCreateProxy(IntPtr eventLoop);
+
+    /// <summary>
+    /// Request exit via proxy.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_event_loop_proxy_request_exit")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool EventLoopProxyRequestExit(IntPtr proxy);
+
+    /// <summary>
+    /// Send a user event via proxy.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_event_loop_proxy_send_user_event", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool EventLoopProxySendUserEvent(IntPtr proxy, string? payload);
+
+    /// <summary>
+    /// Free the proxy handle.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_event_loop_proxy_free")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial void EventLoopProxyFree(IntPtr proxy);
+
+    /// <summary>
+    /// Run the event loop, calling the callback for each event.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_event_loop_pump")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial void EventLoopPump(IntPtr eventLoop, WryEventLoopCallback callback, IntPtr userData);
+
+    // ==========================================================================
+    // macOS-specific Event Loop Functions
+    // ==========================================================================
+
+    /// <summary>
+    /// Set macOS activation policy.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_event_loop_set_activation_policy")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool EventLoopSetActivationPolicy(IntPtr eventLoop, WryActivationPolicy policy);
+
+    /// <summary>
+    /// Set macOS dock visibility.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_event_loop_set_dock_visibility")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool EventLoopSetDockVisibility(IntPtr eventLoop, [MarshalAs(UnmanagedType.U1)] bool visible);
+
+    /// <summary>
+    /// Hide macOS application.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_event_loop_hide_application")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool EventLoopHideApplication(IntPtr eventLoop);
+
+    /// <summary>
+    /// Show macOS application.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_event_loop_show_application")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool EventLoopShowApplication(IntPtr eventLoop);
+
+    /// <summary>
+    /// Force app state to launched (testing helper).
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_app_state_force_launched")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial void AppStateForceLaunched();
+
+    // ==========================================================================
+    // Window Creation/Destruction
+    // ==========================================================================
+
+    /// <summary>
+    /// Create a new window.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_window_build")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial IntPtr WindowBuild(IntPtr eventLoop, in WryWindowConfig config);
+
+    /// <summary>
+    /// Free a window.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_window_free")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial void WindowFree(IntPtr window);
+
+    /// <summary>
+    /// Get window identifier (do not free).
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_window_identifier")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial IntPtr WindowIdentifier(IntPtr window);
+
+    // ==========================================================================
+    // Window Properties - Setters
+    // ==========================================================================
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_title", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetTitle(IntPtr window, string title);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_fullscreen")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetFullscreen(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool fullscreen);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_decorations")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetDecorations(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool decorations);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_always_on_bottom")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetAlwaysOnBottom(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool onBottom);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_visible_on_all_workspaces")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetVisibleOnAllWorkspaces(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool visible);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_content_protected")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetContentProtected(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool protected_);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_resizable")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetResizable(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool resizable);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_always_on_top")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetAlwaysOnTop(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool onTop);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_visible")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetVisible(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool visible);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_maximized")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetMaximized(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool maximized);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_minimized")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetMinimized(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool minimized);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_skip_taskbar")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetSkipTaskbar(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool skip);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_minimizable")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetMinimizable(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool minimizable);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_maximizable")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetMaximizable(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool maximizable);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_closable")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetClosable(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool closable);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_background_color")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetBackgroundColor(IntPtr window, in WryColor color);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_theme")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetTheme(IntPtr window, WryWindowTheme theme);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_focusable")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetFocusable(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool focusable);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_size")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetSize(IntPtr window, double width, double height);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_position")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetPosition(IntPtr window, double x, double y);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_min_size")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetMinSize(IntPtr window, double width, double height);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_max_size")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetMaxSize(IntPtr window, double width, double height);
+
+    // ==========================================================================
+    // Window Properties - Getters
+    // ==========================================================================
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_is_maximized")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowIsMaximized(IntPtr window);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_is_minimized")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowIsMinimized(IntPtr window);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_is_visible")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
     [return: MarshalAs(UnmanagedType.U1)]
     public static partial bool WindowIsVisible(IntPtr window);
 
-    /// <summary>
-    /// Set window title.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_set_title", StringMarshalling = StringMarshalling.Utf8)]
+    [LibraryImport(WryLib, EntryPoint = "wry_window_is_resizable")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowSetTitle(IntPtr window, string title);
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowIsResizable(IntPtr window);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_is_decorated")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowIsDecorated(IntPtr window);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_is_always_on_top")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowIsAlwaysOnTop(IntPtr window);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_is_minimizable")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowIsMinimizable(IntPtr window);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_is_maximizable")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowIsMaximizable(IntPtr window);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_is_closable")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowIsClosable(IntPtr window);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_is_fullscreen")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowIsFullscreen(IntPtr window);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_is_focused")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowIsFocused(IntPtr window);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_scale_factor")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowScaleFactor(IntPtr window, out double scaleFactor);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_inner_position")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowInnerPosition(IntPtr window, out WryPoint position);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_outer_position")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowOuterPosition(IntPtr window, out WryPoint position);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_inner_size")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowInnerSize(IntPtr window, out WrySize size);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_outer_size")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowOuterSize(IntPtr window, out WrySize size);
 
     /// <summary>
-    /// Get window title. Caller must free with StringFree.
+    /// Get window title (pointer to internal buffer - do not free).
     /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_get_title")]
+    [LibraryImport(WryLib, EntryPoint = "wry_window_title")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial IntPtr WindowGetTitle(IntPtr window);
+    public static partial IntPtr WindowTitle(IntPtr window);
 
-    /// <summary>
-    /// Set window size.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_set_size")]
+    [LibraryImport(WryLib, EntryPoint = "wry_window_cursor_position")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowSetSize(IntPtr window, WrySize size);
-
-    /// <summary>
-    /// Get window size.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_get_size")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial WrySize WindowGetSize(IntPtr window);
-
-    /// <summary>
-    /// Set window position.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_set_position")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowSetPosition(IntPtr window, WryPosition position);
-
-    /// <summary>
-    /// Get window position.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_get_position")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial WryPosition WindowGetPosition(IntPtr window);
-
-    /// <summary>
-    /// Minimize window.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_minimize")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowMinimize(IntPtr window);
-
-    /// <summary>
-    /// Maximize window.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_maximize")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowMaximize(IntPtr window);
-
-    /// <summary>
-    /// Unmaximize window.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_unmaximize")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowUnmaximize(IntPtr window);
-
-    /// <summary>
-    /// Set fullscreen mode.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_set_fullscreen")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowSetFullscreen(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool fullscreen);
-
-    /// <summary>
-    /// Focus window.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_focus")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowFocus(IntPtr window);
-
-    /// <summary>
-    /// Close window.
-    /// Thread-safe - dispatches via event loop.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_close")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowClose(IntPtr window);
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowCursorPosition(IntPtr window, out WryPoint position);
 
     // ==========================================================================
-    // Callbacks
+    // Window Actions
     // ==========================================================================
 
-    /// <summary>
-    /// Set callback for web messages.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_set_message_callback")]
+    [LibraryImport(WryLib, EntryPoint = "wry_window_focus")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowSetMessageCallback(IntPtr window, WebMessageCallbackNative callback, IntPtr userData);
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowFocus(IntPtr window);
 
-    /// <summary>
-    /// Set callback for window closing.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_set_closing_callback")]
+    [LibraryImport(WryLib, EntryPoint = "wry_window_request_redraw")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowSetClosingCallback(IntPtr window, WindowClosingCallbackNative callback, IntPtr userData);
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowRequestRedraw(IntPtr window);
 
-    /// <summary>
-    /// Set callback for window resize.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_set_resized_callback")]
+    [LibraryImport(WryLib, EntryPoint = "wry_window_request_user_attention")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowSetResizedCallback(IntPtr window, WindowResizedCallbackNative callback, IntPtr userData);
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowRequestUserAttention(IntPtr window, WryUserAttentionType attentionType);
 
-    /// <summary>
-    /// Set callback for window move.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_set_moved_callback")]
+    [LibraryImport(WryLib, EntryPoint = "wry_window_clear_user_attention")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowSetMovedCallback(IntPtr window, WindowMovedCallbackNative callback, IntPtr userData);
-
-    /// <summary>
-    /// Set callback for focus change.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_set_focus_callback")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowSetFocusCallback(IntPtr window, WindowFocusCallbackNative callback, IntPtr userData);
-
-    /// <summary>
-    /// Set callback for navigation (can cancel).
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_window_set_navigation_callback")]
-    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void WindowSetNavigationCallback(IntPtr window, NavigationCallbackNative callback, IntPtr userData);
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowClearUserAttention(IntPtr window);
 
     // ==========================================================================
-    // Dispatch
+    // Cursor Operations
     // ==========================================================================
 
-    /// <summary>
-    /// Execute callback on UI thread (thread-safe, can be called from any thread).
-    /// The callback will be queued and executed asynchronously.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_invoke")]
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_cursor_grab")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void Invoke(IntPtr app, InvokeCallbackNative callback, IntPtr userData);
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetCursorGrab(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool grab);
 
-    /// <summary>
-    /// Execute callback on UI thread and wait for completion.
-    /// WARNING: Do not call this from the UI thread as it will deadlock.
-    /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_invoke_sync")]
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_cursor_visible")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void InvokeSync(IntPtr app, InvokeCallbackNative callback, IntPtr userData);
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetCursorVisible(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool visible);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_cursor_position")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetCursorPosition(IntPtr window, double x, double y);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_ignore_cursor_events")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetIgnoreCursorEvents(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool ignore);
 
     // ==========================================================================
-    // Protocol
+    // Drag Operations
+    // ==========================================================================
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_start_dragging")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowStartDragging(IntPtr window);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_start_resize_dragging")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowStartResizeDragging(IntPtr window, WryResizeDirection direction);
+
+    // ==========================================================================
+    // Monitor Information
     // ==========================================================================
 
     /// <summary>
-    /// Register custom protocol handler (e.g., "app" for app://...).
-    /// Must be called before window creation.
+    /// Get current monitor info as JSON (pointer to internal buffer - do not free).
     /// </summary>
-    [DllImport(LibraryName, EntryPoint = "wry_register_protocol", CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
-    public static extern WryResult RegisterProtocol(IntPtr app, [MarshalAs(UnmanagedType.LPUTF8Str)] string scheme, CustomProtocolCallbackNative callback, IntPtr userData);
+    [LibraryImport(WryLib, EntryPoint = "wry_window_current_monitor")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial IntPtr WindowCurrentMonitor(IntPtr window);
+
+    /// <summary>
+    /// Get primary monitor info as JSON (pointer to internal buffer - do not free).
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_window_primary_monitor")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial IntPtr WindowPrimaryMonitor(IntPtr window);
+
+    /// <summary>
+    /// Get all monitors as JSON array (pointer to internal buffer - do not free).
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_window_available_monitors")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial IntPtr WindowAvailableMonitors(IntPtr window);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_window_monitor_from_point")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial IntPtr WindowMonitorFromPoint(IntPtr window, WryPoint point);
 
     // ==========================================================================
-    // String Management
+    // Window Icon
     // ==========================================================================
 
     /// <summary>
-    /// Free a string allocated by wry-ffi.
-    /// Must be called for strings returned by wry_webview_get_url, wry_window_get_title, etc.
+    /// Set window icon from raw RGBA pixel data.
     /// </summary>
-    [LibraryImport(LibraryName, EntryPoint = "wry_string_free")]
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_icon_rgba")]
     [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
-    public static partial void StringFree(IntPtr str);
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetIconRgba(IntPtr window, IntPtr rgbaData, nuint rgbaLen, uint width, uint height);
+
+    /// <summary>
+    /// Set window icon from an image file path (PNG, ICO, JPEG).
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_icon_file", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetIconFile(IntPtr window, string path);
+
+    /// <summary>
+    /// Clear the window icon.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_window_clear_icon")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowClearIcon(IntPtr window);
+
+    /// <summary>
+    /// Enable or disable a window (blocks/unblocks user interaction).
+    /// Used for modal dialog support. Windows: set_enable, Linux: set_sensitive, macOS: no-op.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_window_set_enabled")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WindowSetEnabled(IntPtr window, [MarshalAs(UnmanagedType.U1)] bool enabled);
+
+    // ==========================================================================
+    // Webview Creation/Destruction
+    // ==========================================================================
+
+    /// <summary>
+    /// Create a webview in a window.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_build")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial IntPtr WebviewBuild(IntPtr window, in WryWebviewConfig config);
+
+    /// <summary>
+    /// Free a webview.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_free")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial void WebviewFree(IntPtr webview);
+
+    /// <summary>
+    /// Get webview identifier (do not free).
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_identifier")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial IntPtr WebviewIdentifier(IntPtr webview);
+
+    // ==========================================================================
+    // Webview Navigation
+    // ==========================================================================
+
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_navigate", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WebviewNavigate(IntPtr webview, string url);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_reload")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WebviewReload(IntPtr webview);
+
+    // ==========================================================================
+    // Webview Script Execution
+    // ==========================================================================
+
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_evaluate_script", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WebviewEvaluateScript(IntPtr webview, string script);
+
+    // ==========================================================================
+    // Webview Zoom
+    // ==========================================================================
+
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_set_zoom")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WebviewSetZoom(IntPtr webview, double scaleFactor);
+
+    // ==========================================================================
+    // Webview Visibility
+    // ==========================================================================
+
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_show")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WebviewShow(IntPtr webview);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_hide")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WebviewHide(IntPtr webview);
+
+    // ==========================================================================
+    // Webview Bounds (for child webviews)
+    // ==========================================================================
+
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_set_bounds")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WebviewSetBounds(IntPtr webview, double x, double y, double width, double height);
+
+    // ==========================================================================
+    // Webview DevTools
+    // ==========================================================================
+
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_open_devtools")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WebviewOpenDevTools(IntPtr webview);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_close_devtools")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WebviewCloseDevTools(IntPtr webview);
+
+    // ==========================================================================
+    // Webview Browsing Data
+    // ==========================================================================
+
+    [LibraryImport(WryLib, EntryPoint = "wry_webview_clear_browsing_data")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool WebviewClearBrowsingData(IntPtr webview);
+
+    // ==========================================================================
+    // Dialogs
+    // ==========================================================================
+
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_open")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial WryDialogSelection DialogOpen(in WryDialogOpenOptions options);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_save")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial WryDialogSelection DialogSave(in WryDialogSaveOptions options);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_selection_free")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial void DialogSelectionFree(WryDialogSelection selection);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_message")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool DialogMessage(in WryMessageDialogOptions options);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_confirm")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool DialogConfirm(in WryConfirmDialogOptions options);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_ask")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool DialogAsk(in WryAskDialogOptions options);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_prompt")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial WryPromptDialogResult DialogPrompt(in WryPromptDialogOptions options);
+
+    [LibraryImport(WryLib, EntryPoint = "wry_dialog_prompt_result_free")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial void DialogPromptResultFree(WryPromptDialogResult result);
+
+    // ==========================================================================
+    // Notifications
+    // ==========================================================================
+
+    /// <summary>
+    /// Show a desktop notification.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_notification_show")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool NotificationShow(in WryNotificationOptions options);
+
+    // ==========================================================================
+    // Global Shortcuts
+    // ==========================================================================
+
+    /// <summary>
+    /// Register a global shortcut. Returns shortcut ID (0 = failure).
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_shortcut_register", StringMarshalling = StringMarshalling.Utf8)]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    public static partial uint ShortcutRegister(string accelerator);
+
+    /// <summary>
+    /// Unregister a global shortcut by ID.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_shortcut_unregister")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool ShortcutUnregister(uint shortcutId);
+
+    /// <summary>
+    /// Unregister all global shortcuts.
+    /// </summary>
+    [LibraryImport(WryLib, EntryPoint = "wry_shortcut_unregister_all")]
+    [UnmanagedCallConv(CallConvs = [typeof(System.Runtime.CompilerServices.CallConvCdecl)])]
+    [return: MarshalAs(UnmanagedType.U1)]
+    public static partial bool ShortcutUnregisterAll();
+
+    // ==========================================================================
+    // Legacy API Shims (for backward compatibility during migration)
+    // ==========================================================================
+
+    // String free - no longer needed in new API, but kept for compatibility
+    public static void StringFree(IntPtr _)
+    {
+        // New API uses internal buffers that don't need freeing
+        // This is a no-op for compatibility
+    }
+
+    // Get last error - new API doesn't have this, return empty string
+    public static IntPtr GetLastError() => IntPtr.Zero;
 }

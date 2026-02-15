@@ -1,334 +1,311 @@
-//! Application state and event loop management
+//! Application and event loop management
 //!
-//! Manages the Tao event loop and window registry.
+//! FFI functions for creating and running the event loop.
 
-use std::collections::HashMap;
-use std::ffi::c_char;
+use std::ffi::CString;
+use std::os::raw::{c_char, c_void};
+use std::ptr;
 
-use tao::event::{Event, StartCause, WindowEvent};
-use tao::event_loop::{ControlFlow, EventLoop, EventLoopBuilder, EventLoopProxy};
+use tao::event::Event;
+use tao::event_loop::{ControlFlow, EventLoopBuilder};
 use tao::platform::run_return::EventLoopExtRunReturn;
-use tao::window::WindowId;
 
-use crate::error::{error_result, get_last_error_ptr, set_last_error};
-use crate::types::{WryApp, WryErrorCode, WryResult};
-use crate::window::WindowState;
+#[cfg(target_os = "macos")]
+use muda::MenuEvent;
+#[cfg(target_os = "macos")]
+use tao::platform::macos::EventLoopWindowTargetExtMacOS;
+#[cfg(target_os = "macos")]
+use tray_icon::TrayIconEvent;
 
-/// User events for cross-thread communication
-pub enum UserEvent {
-    /// Request to quit the application
-    Quit,
-    /// Invoke a callback on the UI thread
-    InvokeCallback(Box<dyn FnOnce() + Send>),
-    /// Send a message to a webview (thread-safe)
-    WebViewMessage { window_id: WindowId, message: String },
-    /// Close/destroy a specific window
-    DestroyWindow(WindowId),
-}
-
-impl std::fmt::Debug for UserEvent {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            UserEvent::Quit => write!(f, "Quit"),
-            UserEvent::InvokeCallback(_) => write!(f, "InvokeCallback(<fn>)"),
-            UserEvent::WebViewMessage { window_id, message } => {
-                write!(f, "WebViewMessage {{ window_id: {:?}, message: {:?} }}", window_id, message)
-            }
-            UserEvent::DestroyWindow(id) => write!(f, "DestroyWindow({:?})", id),
-        }
-    }
-}
-
-/// Application state holding the event loop and windows
-pub struct AppState {
-    /// The event loop (taken during run)
-    pub event_loop: Option<EventLoop<UserEvent>>,
-    /// Proxy for sending events from other threads
-    pub event_loop_proxy: EventLoopProxy<UserEvent>,
-    /// All windows managed by this app - boxed for stable addresses
-    pub windows: HashMap<WindowId, Box<WindowState>>,
-    /// Custom protocol handlers (scheme -> handler)
-    pub custom_protocols: HashMap<String, ProtocolHandler>,
-    /// Whether we should quit
-    pub should_quit: bool,
-}
-
-/// A custom protocol handler
-pub struct ProtocolHandler {
-    pub callback: crate::types::CustomProtocolCallback,
-    pub user_data: *mut std::os::raw::c_void,
-}
-
-// Safety: user_data is managed by the caller
-unsafe impl Send for ProtocolHandler {}
-unsafe impl Sync for ProtocolHandler {}
-
-impl AppState {
-    /// Create a new app state
-    pub fn new() -> Result<Self, String> {
-        let event_loop = EventLoopBuilder::<UserEvent>::with_user_event().build();
-        let proxy = event_loop.create_proxy();
-
-        Ok(Self {
-            event_loop: Some(event_loop),
-            event_loop_proxy: proxy,
-            windows: HashMap::new(),
-            custom_protocols: HashMap::new(),
-            should_quit: false,
-        })
-    }
-
-    /// Get a window by ID
-    pub fn get_window(&self, id: WindowId) -> Option<&WindowState> {
-        self.windows.get(&id).map(|b| b.as_ref())
-    }
-
-    /// Get a mutable window by ID
-    pub fn get_window_mut(&mut self, id: WindowId) -> Option<&mut WindowState> {
-        self.windows.get_mut(&id).map(|b| b.as_mut())
-    }
-
-    /// Request quit
-    pub fn quit(&mut self) {
-        self.should_quit = true;
-        let _ = self.event_loop_proxy.send_event(UserEvent::Quit);
-    }
-}
+use crate::events::serialize_event;
+use crate::helpers::*;
+use crate::types::*;
 
 // ============================================================================
-// FFI Functions
+// ABI Version
 // ============================================================================
 
-/// Initialize the application. Must be called first, on main thread.
-///
-/// # Returns
-/// App handle or NULL on failure
+const WRY_FFI_ABI_VERSION: u32 = 2;
+
 #[no_mangle]
-pub extern "C" fn wry_app_create() -> WryApp {
-    // Initialize logging
-    let _ = env_logger::try_init();
-    log::info!("wry_app_create called");
+pub extern "C" fn wry_ffi_abi_version() -> u32 {
+    WRY_FFI_ABI_VERSION
+}
 
-    #[cfg(target_os = "linux")]
+#[no_mangle]
+pub extern "C" fn wry_library_name() -> *const c_char {
+    cached_cstring(&LIBRARY_NAME, || "WryFFI".to_string())
+}
+
+#[no_mangle]
+pub extern "C" fn wry_crate_version() -> *const c_char {
+    cached_cstring(&RUNTIME_VERSION, || env!("CARGO_PKG_VERSION").to_string())
+}
+
+#[no_mangle]
+pub extern "C" fn wry_webview_version() -> *const c_char {
+    cached_cstring(&WEBVIEW_VERSION, || {
+        wry::webview_version().unwrap_or_default()
+    })
+}
+
+// ============================================================================
+// Event Loop Creation
+// ============================================================================
+
+#[no_mangle]
+pub extern "C" fn wry_event_loop_new() -> *mut WryEventLoop {
+    let event_loop = EventLoopBuilder::<WryUserEvent>::with_user_event().build();
+
+    #[cfg(target_os = "macos")]
     {
-        if gtk::init().is_err() {
-            set_last_error("Failed to initialize GTK");
-            return std::ptr::null_mut();
-        }
-        log::debug!("GTK initialized");
+        let proxy = event_loop.create_proxy();
+        MenuEvent::set_event_handler(Some(move |event: MenuEvent| {
+            let _ = proxy.send_event(WryUserEvent::Menu(event.id().as_ref().to_string()));
+        }));
+
+        let tray_proxy = event_loop.create_proxy();
+        TrayIconEvent::set_event_handler(Some(move |event: TrayIconEvent| {
+            let _ = tray_proxy.send_event(WryUserEvent::Tray(event.into()));
+        }));
     }
 
-    match AppState::new() {
-        Ok(state) => {
-            let boxed = Box::new(state);
-            log::info!("App created successfully");
-            Box::into_raw(boxed) as WryApp
-        }
-        Err(e) => {
-            set_last_error(format!("Failed to create app: {}", e));
-            std::ptr::null_mut()
-        }
-    }
+    Box::into_raw(Box::new(WryEventLoop { event_loop }))
 }
 
-/// Run the event loop. Blocks until all windows closed or wry_app_quit called.
-///
-/// # Safety
-/// Must be called on main thread with a valid app handle.
 #[no_mangle]
-pub unsafe extern "C" fn wry_app_run(app: WryApp) -> WryResult {
-    if app.is_null() {
-        return error_result(WryErrorCode::InvalidHandle, "Null app handle");
+pub extern "C" fn wry_event_loop_free(event_loop: *mut WryEventLoop) {
+    if !event_loop.is_null() {
+        unsafe { drop(Box::from_raw(event_loop)) };
+        #[cfg(target_os = "macos")]
+        MenuEvent::set_event_handler::<fn(MenuEvent)>(None);
+        #[cfg(target_os = "macos")]
+        TrayIconEvent::set_event_handler::<fn(TrayIconEvent)>(None);
     }
-
-    log::info!("wry_app_run called");
-    let state = &mut *(app as *mut AppState);
-
-    let mut event_loop = match state.event_loop.take() {
-        Some(el) => el,
-        None => {
-            return error_result(
-                WryErrorCode::EventLoopError,
-                "Event loop already consumed or running",
-            );
-        }
-    };
-
-    // Use run_return to allow returning control
-    // We need to use a raw pointer to access state inside the closure
-    let state_ptr = app as *mut AppState;
-
-    let exit_code = event_loop.run_return(move |event, _event_loop, control_flow| {
-        // Get state - safe because we're on the main thread
-        let state = &mut *state_ptr;
-
-        // Process GTK events on Linux
-        #[cfg(target_os = "linux")]
-        while gtk::events_pending() {
-            gtk::main_iteration_do(false);
-        }
-
-        *control_flow = ControlFlow::Wait;
-
-        match event {
-            Event::NewEvents(StartCause::Init) => {
-                log::debug!("Event loop initialized");
-            }
-
-            Event::UserEvent(user_event) => {
-                handle_user_event(state, user_event, control_flow);
-            }
-
-            Event::WindowEvent { window_id, event, .. } => {
-                handle_window_event(state, window_id, event, control_flow);
-            }
-
-            Event::LoopDestroyed => {
-                log::info!("Event loop destroyed");
-            }
-
-            _ => {}
-        }
-
-        // Check if we should quit
-        if state.should_quit || state.windows.is_empty() {
-            *control_flow = ControlFlow::Exit;
-        }
-    });
-
-    if exit_code != 0 {
-        return error_result(
-            WryErrorCode::EventLoopError,
-            format!("Event loop exited with code: {}", exit_code),
-        );
-    }
-
-    WryResult::ok()
 }
 
-/// Handle user events (from other threads)
-fn handle_user_event(state: &mut AppState, event: UserEvent, control_flow: &mut ControlFlow) {
-    match event {
-        UserEvent::Quit => {
-            log::info!("Quit requested");
-            state.should_quit = true;
-            *control_flow = ControlFlow::Exit;
+// ============================================================================
+// Event Loop Proxy
+// ============================================================================
+
+#[no_mangle]
+pub extern "C" fn wry_event_loop_create_proxy(
+    event_loop: *mut WryEventLoop,
+) -> *mut WryEventLoopProxyHandle {
+    if event_loop.is_null() {
+        return ptr::null_mut();
+    }
+
+    let event_loop = unsafe { &mut *event_loop };
+    let proxy = event_loop.event_loop.create_proxy();
+    Box::into_raw(Box::new(WryEventLoopProxyHandle { proxy }))
+}
+
+#[no_mangle]
+pub extern "C" fn wry_event_loop_proxy_request_exit(
+    proxy: *mut WryEventLoopProxyHandle,
+) -> bool {
+    if proxy.is_null() {
+        return false;
+    }
+
+    let proxy = unsafe { &mut *proxy };
+    proxy.proxy.send_event(WryUserEvent::Exit).is_ok()
+}
+
+#[no_mangle]
+pub extern "C" fn wry_event_loop_proxy_send_user_event(
+    proxy: *mut WryEventLoopProxyHandle,
+    payload: *const c_char,
+) -> bool {
+    if proxy.is_null() {
+        return false;
+    }
+
+    let proxy = unsafe { &mut *proxy };
+    let message = opt_cstring(payload).unwrap_or_default();
+    proxy
+        .proxy
+        .send_event(WryUserEvent::Custom(message))
+        .is_ok()
+}
+
+#[no_mangle]
+pub extern "C" fn wry_event_loop_proxy_free(proxy: *mut WryEventLoopProxyHandle) {
+    if !proxy.is_null() {
+        unsafe { drop(Box::from_raw(proxy)) };
+    }
+}
+
+// ============================================================================
+// macOS-specific Event Loop Functions
+// ============================================================================
+
+#[no_mangle]
+pub extern "C" fn wry_event_loop_set_activation_policy(
+    event_loop: *mut WryEventLoop,
+    policy: WryActivationPolicy,
+) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        if event_loop.is_null() {
+            return false;
         }
 
-        UserEvent::InvokeCallback(callback) => {
-            log::debug!("Invoking callback on UI thread");
-            callback();
+        let event_loop = unsafe { &mut *event_loop };
+        event_loop
+            .event_loop
+            .set_activation_policy_at_runtime(activation_policy_from_ffi(policy));
+        true
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (event_loop, policy);
+        false
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn wry_event_loop_set_dock_visibility(
+    event_loop: *mut WryEventLoop,
+    visible: bool,
+) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        if event_loop.is_null() {
+            return false;
         }
 
-        UserEvent::WebViewMessage { window_id, message } => {
-            if let Some(window_state) = state.windows.get(&window_id) {
-                if let Some(webview) = &window_state.webview {
-                    let script = format!(
-                        "if(window.tauri && window.tauri.__receive) {{ window.tauri.__receive({:?}); }}",
-                        message
+        let event_loop = unsafe { &mut *event_loop };
+        event_loop.event_loop.set_dock_visibility(visible);
+        true
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = (event_loop, visible);
+        false
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn wry_event_loop_hide_application(event_loop: *mut WryEventLoop) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        if event_loop.is_null() {
+            return false;
+        }
+
+        let event_loop = unsafe { &mut *event_loop };
+        event_loop.event_loop.hide_application();
+        true
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = event_loop;
+        false
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn wry_event_loop_show_application(event_loop: *mut WryEventLoop) -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        if event_loop.is_null() {
+            return false;
+        }
+
+        let event_loop = unsafe { &mut *event_loop };
+        event_loop.event_loop.show_application();
+        true
+    }
+
+    #[cfg(not(target_os = "macos"))]
+    {
+        let _ = event_loop;
+        false
+    }
+}
+
+// ============================================================================
+// Event Loop Pump (Main Loop)
+// ============================================================================
+
+#[no_mangle]
+pub extern "C" fn wry_event_loop_pump(
+    event_loop: *mut WryEventLoop,
+    callback: WryEventLoopCallback,
+    user_data: *mut c_void,
+) {
+    if event_loop.is_null() {
+        return;
+    }
+
+    let event_loop = unsafe { &mut *event_loop };
+    event_loop
+        .event_loop
+        .run_return(|event, _target, control_flow| {
+            if let Some(cb) = callback {
+                let description = serialize_event(&event);
+                if let Ok(c_description) = CString::new(description) {
+                    let desired_flow = cb(c_description.as_ptr(), user_data);
+                    match desired_flow {
+                        WryEventLoopControlFlow::Poll => *control_flow = ControlFlow::Poll,
+                        WryEventLoopControlFlow::Wait => *control_flow = ControlFlow::Wait,
+                        WryEventLoopControlFlow::Exit => *control_flow = ControlFlow::Exit,
+                    }
+                } else {
+                    *control_flow = ControlFlow::Exit;
+                }
+
+                // Poll for global hotkey events and deliver them through the callback
+                while let Some(shortcut_id) = crate::shortcuts::poll_hotkey_event() {
+                    let hotkey_json = format!(
+                        r#"{{"type":"global-shortcut","id":{}}}"#,
+                        shortcut_id
                     );
-                    if let Err(e) = webview.evaluate_script(&script) {
-                        log::error!("Failed to send message to webview: {}", e);
+                    if let Ok(c_hotkey) = CString::new(hotkey_json) {
+                        let flow = cb(c_hotkey.as_ptr(), user_data);
+                        if matches!(flow, WryEventLoopControlFlow::Exit) {
+                            *control_flow = ControlFlow::Exit;
+                            return;
+                        }
                     }
                 }
+            } else {
+                *control_flow = ControlFlow::Exit;
             }
-        }
 
-        UserEvent::DestroyWindow(window_id) => {
-            log::debug!("Destroy window requested: {:?}", window_id);
-            state.windows.remove(&window_id);
-        }
-    }
+            if matches!(event, Event::UserEvent(WryUserEvent::Exit)) {
+                *control_flow = ControlFlow::Exit;
+            }
+
+            if matches!(event, Event::LoopDestroyed) {
+                *control_flow = ControlFlow::Exit;
+            }
+        });
 }
 
-/// Handle window events
-fn handle_window_event(
-    state: &mut AppState,
-    window_id: WindowId,
-    event: WindowEvent,
-    _control_flow: &mut ControlFlow,
-) {
-    // For CloseRequested, we need to check callback first, then maybe remove
-    if let WindowEvent::CloseRequested = &event {
-        let should_close = state
-            .windows
-            .get(&window_id)
-            .map(|ws| ws.callbacks.call_closing())
-            .unwrap_or(true);
+// ============================================================================
+// Testing Helpers (macOS local-dev only)
+// ============================================================================
 
-        if should_close {
-            log::debug!("Window close requested and approved: {:?}", window_id);
-            state.windows.remove(&window_id);
-        }
-        return;
-    }
-
-    // For other events, get mutable reference
-    let window_state = match state.windows.get_mut(&window_id) {
-        Some(ws) => ws,
-        None => return,
-    };
-
-    match event {
-        WindowEvent::Resized(size) => {
-            let (width, height) = size.into();
-            log::debug!("Window resized: {:?} -> {}x{}", window_id, width, height);
-            window_state.callbacks.call_resized(width, height);
-        }
-
-        WindowEvent::Moved(position) => {
-            let (x, y) = position.into();
-            log::debug!("Window moved: {:?} -> ({}, {})", window_id, x, y);
-            window_state.callbacks.call_moved(x, y);
-        }
-
-        WindowEvent::Focused(focused) => {
-            log::debug!("Window focus changed: {:?} -> {}", window_id, focused);
-            window_state.callbacks.call_focus(focused);
-        }
-
-        _ => {}
-    }
-}
-
-/// Request app to quit
-///
-/// # Safety
-/// Must be called with a valid app handle.
+#[cfg(all(target_os = "macos", feature = "local-dev"))]
 #[no_mangle]
-pub unsafe extern "C" fn wry_app_quit(app: WryApp) {
-    if app.is_null() {
-        return;
-    }
-
-    log::info!("wry_app_quit called");
-    let state = &mut *(app as *mut AppState);
-    state.quit();
+pub extern "C" fn wry_app_state_force_launched() {
+    tao::platform::macos::force_app_state_launched_for_testing();
 }
 
-/// Destroy app and free resources
-///
-/// # Safety
-/// The app handle must not be used after this call.
+#[cfg(all(target_os = "macos", not(feature = "local-dev")))]
 #[no_mangle]
-pub unsafe extern "C" fn wry_app_destroy(app: WryApp) {
-    if app.is_null() {
-        return;
-    }
-
-    log::info!("wry_app_destroy called");
-    let _ = Box::from_raw(app as *mut AppState);
+pub extern "C" fn wry_app_state_force_launched() {
+    // No-op when using crates.io tao (velox-testing feature not available)
 }
 
-/// Get last error message (valid until next wry_* call)
+#[cfg(not(target_os = "macos"))]
 #[no_mangle]
-pub extern "C" fn wry_get_last_error() -> *const c_char {
-    get_last_error_ptr()
-}
-
-/// Get version string
-#[no_mangle]
-pub extern "C" fn wry_version() -> *const c_char {
-    static VERSION: &str = concat!(env!("CARGO_PKG_VERSION"), "\0");
-    VERSION.as_ptr() as *const c_char
+pub extern "C" fn wry_app_state_force_launched() {
+    // No-op on non-macOS platforms
 }

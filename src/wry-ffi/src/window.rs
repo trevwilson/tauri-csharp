@@ -1,378 +1,914 @@
-//! Window state and management
+//! Window creation and management FFI functions
 //!
-//! Creates and manages windows with associated webviews.
+//! Functions for creating windows and manipulating their properties.
 
-use std::borrow::Cow;
-use std::ffi::CStr;
-use std::os::raw::c_void;
+use std::ffi::CString;
+use std::os::raw::c_char;
+use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::ptr;
 
-use http::{Response, StatusCode};
-use tao::dpi::{LogicalPosition, LogicalSize};
-use tao::event_loop::EventLoopProxy;
-use tao::window::{Window, WindowBuilder, WindowId};
-use wry::{WebView, WebViewBuilder};
+use tao::dpi::{LogicalPosition, LogicalSize, Size};
+use tao::window::{Fullscreen, Icon, WindowBuilder as TaoWindowBuilder};
 
-use crate::app::{AppState, UserEvent};
-use crate::callbacks::WindowCallbacks;
-use crate::error::set_last_error;
-use crate::string::c_str_to_string;
-use crate::types::{WryApp, WryWindow, WryWindowParams};
-
-/// State for a single window
-pub struct WindowState {
-    /// Window identifier
-    pub id: WindowId,
-    /// The Tao window
-    pub window: Window,
-    /// The Wry webview (optional, created with window)
-    pub webview: Option<WebView>,
-    /// Registered callbacks
-    pub callbacks: WindowCallbacks,
-    /// Event loop proxy for thread-safe operations
-    pub event_loop_proxy: EventLoopProxy<UserEvent>,
-}
-
-impl WindowState {
-    /// Get the window handle as a raw pointer
-    /// Since WindowState is stored in Box, this pointer is stable
-    pub fn as_ptr(&self) -> WryWindow {
-        self as *const WindowState as *mut c_void
-    }
-
-    /// Request destruction via event loop (thread-safe)
-    pub fn request_destroy(&self) {
-        let _ = self.event_loop_proxy.send_event(UserEvent::DestroyWindow(self.id));
-    }
-
-    /// Send a message to the webview via event loop (thread-safe)
-    pub fn send_message(&self, message: String) {
-        let _ = self.event_loop_proxy.send_event(UserEvent::WebViewMessage {
-            window_id: self.id,
-            message,
-        });
-    }
-}
+use crate::helpers::*;
+use crate::types::*;
 
 // ============================================================================
-// FFI Functions
+// Window Creation/Destruction
 // ============================================================================
 
-/// Create a new window with webview
-///
-/// # Safety
-/// Must be called on main thread with a valid app handle.
 #[no_mangle]
-pub unsafe extern "C" fn wry_window_create(
-    app: WryApp,
-    params: *const WryWindowParams,
-) -> WryWindow {
-    if app.is_null() {
-        set_last_error("Null app handle");
-        return std::ptr::null_mut();
+pub extern "C" fn wry_window_build(
+    event_loop: *mut WryEventLoop,
+    config: *const WryWindowConfig,
+) -> *mut WryWindowHandle {
+    if event_loop.is_null() {
+        return ptr::null_mut();
     }
 
-    if params.is_null() {
-        set_last_error("Null params");
-        return std::ptr::null_mut();
-    }
+    let event_loop = unsafe { &mut *event_loop };
+    let cfg = unsafe { config.as_ref().copied().unwrap_or_default() };
 
-    log::info!("wry_window_create called");
-    let state = &mut *(app as *mut AppState);
-    let params = &*params;
+    let has_parent = !cfg.parent.is_null();
+    let is_modal = cfg.modal && has_parent;
 
-    // Get the event loop for window creation
-    let event_loop = match &state.event_loop {
-        Some(el) => el,
-        None => {
-            set_last_error("Event loop not available - app may already be running");
-            return std::ptr::null_mut();
+    let build_result = catch_unwind(AssertUnwindSafe(|| {
+        let mut builder = TaoWindowBuilder::new();
+
+        if let Some(title) = opt_cstring(cfg.title) {
+            builder = builder.with_title(title);
         }
-    };
 
-    // Build window
-    let title = c_str_to_string(params.title).unwrap_or_else(|| "Untitled".to_string());
-    log::debug!("Creating window with title: {}", title);
-
-    let mut window_builder = WindowBuilder::new()
-        .with_title(&title)
-        .with_inner_size(LogicalSize::new(params.width, params.height))
-        .with_resizable(params.resizable)
-        .with_decorations(params.decorations)
-        .with_visible(params.visible)
-        .with_always_on_top(params.always_on_top);
-
-    // Set position if specified
-    if params.x != 0 || params.y != 0 {
-        window_builder = window_builder.with_position(LogicalPosition::new(params.x, params.y));
-    }
-
-    // Set min/max size if specified
-    if params.min_width > 0 && params.min_height > 0 {
-        window_builder =
-            window_builder.with_min_inner_size(LogicalSize::new(params.min_width, params.min_height));
-    }
-    if params.max_width > 0 && params.max_height > 0 {
-        window_builder =
-            window_builder.with_max_inner_size(LogicalSize::new(params.max_width, params.max_height));
-    }
-
-    if params.maximized {
-        window_builder = window_builder.with_maximized(true);
-    }
-
-    if params.fullscreen {
-        window_builder =
-            window_builder.with_fullscreen(Some(tao::window::Fullscreen::Borderless(None)));
-    }
-
-    if params.transparent {
-        window_builder = window_builder.with_transparent(true);
-    }
-
-    // Create the window
-    let window = match window_builder.build(event_loop) {
-        Ok(w) => w,
-        Err(e) => {
-            set_last_error(format!("Failed to create window: {}", e));
-            return std::ptr::null_mut();
+        if cfg.width > 0 && cfg.height > 0 {
+            builder =
+                builder.with_inner_size(LogicalSize::new(cfg.width as f64, cfg.height as f64));
         }
-    };
 
-    let window_id = window.id();
-    log::debug!("Window created with id: {:?}", window_id);
+        // Set parent window relationship (platform-specific)
+        if has_parent {
+            let parent_handle = unsafe { &*cfg.parent };
+            builder = set_parent_window(builder, &parent_handle.window);
+        }
 
-    // Build webview with IPC handler wired to callbacks
-    let proxy = state.event_loop_proxy.clone();
+        builder.build(&event_loop.event_loop)
+    }));
 
-    // Clone the custom protocols for the webview
-    // We need to clone the HashMap since we can't borrow state during window creation
-    let protocols: Vec<_> = state.custom_protocols.iter()
-        .map(|(scheme, handler)| (scheme.clone(), handler.callback, handler.user_data))
-        .collect();
+    match build_result {
+        Ok(Ok(window)) => {
+            // Set modal behavior after window creation (platform-specific)
+            if is_modal {
+                set_modal_behavior(&window, cfg.parent);
+            }
 
-    log::info!("Passing {} custom protocol(s) to webview", protocols.len());
-    for (scheme, _, _) in &protocols {
-        log::debug!("  - scheme: {}", scheme);
+            let id_string = format!("{:?}", window.id());
+            let identifier = CString::new(id_string).unwrap_or_else(|_| {
+                CString::new("wry-window").expect("static string has no nulls")
+            });
+            Box::into_raw(Box::new(WryWindowHandle { window, identifier }))
+        }
+        _ => ptr::null_mut(),
     }
-
-    let webview = create_webview_for_window(&window, params, window_id, proxy.clone(), &protocols);
-
-    let window_state = Box::new(WindowState {
-        id: window_id,
-        window,
-        webview,
-        callbacks: WindowCallbacks::new(window_id),
-        event_loop_proxy: proxy,
-    });
-
-    // Get pointer before moving into hashmap
-    let ptr = window_state.as_ptr();
-
-    // Store in app state
-    state.windows.insert(window_id, window_state);
-
-    ptr
 }
 
-/// Protocol info tuple: (scheme, callback, user_data)
-type ProtocolInfo = (String, crate::types::CustomProtocolCallback, *mut c_void);
+#[no_mangle]
+pub extern "C" fn wry_window_free(window: *mut WryWindowHandle) {
+    if !window.is_null() {
+        unsafe { drop(Box::from_raw(window)) };
+    }
+}
 
-/// Create a webview for a window
-fn create_webview_for_window(
-    window: &Window,
-    params: &WryWindowParams,
-    window_id: WindowId,
-    _proxy: EventLoopProxy<UserEvent>,
-    protocols: &[ProtocolInfo],
-) -> Option<WebView> {
-    let mut builder = WebViewBuilder::new();
-
-    // Inject the JavaScript bridge as an initialization script
-    builder = builder.with_initialization_script(crate::bridge::BRIDGE_SCRIPT);
-
-    // Register custom protocols BEFORE setting URL
-    // Use async protocol handler - required for WebKitGTK to work properly
-    for (scheme, callback, user_data) in protocols.iter().cloned() {
-        log::info!("Registering custom protocol '{}' with webview (async)", scheme);
-        builder = builder.with_asynchronous_custom_protocol(
-            scheme.clone(),
-            move |_webview_id, request, responder| {
-                let uri = request.uri().to_string();
-                log::info!("Custom protocol request: {}", uri);
-
-                // Prepare output variables
-                let mut out_data: *const u8 = std::ptr::null();
-                let mut out_len: usize = 0;
-                let mut out_mime_type: *const std::ffi::c_char = std::ptr::null();
-
-                // Convert URI to C string
-                let uri_cstring = match std::ffi::CString::new(uri.clone()) {
-                    Ok(s) => s,
-                    Err(_) => {
-                        log::error!("Failed to convert URI to CString");
-                        responder.respond(
-                            Response::builder()
-                                .status(StatusCode::INTERNAL_SERVER_ERROR)
-                                .body(Cow::Borrowed(&[] as &[u8]))
-                                .unwrap(),
-                        );
-                        return;
-                    }
-                };
-
-                // Call the C# callback
-                let handled = callback(
-                    std::ptr::null_mut(), // window handle - not available here
-                    uri_cstring.as_ptr(),
-                    &mut out_data as *mut *const u8 as *mut *const u8,
-                    &mut out_len,
-                    &mut out_mime_type as *mut *const std::ffi::c_char as *mut *const std::ffi::c_char,
-                    user_data,
-                );
-
-                if !handled || out_data.is_null() {
-                    log::debug!("Protocol handler returned not handled for: {}", uri);
-                    responder.respond(
-                        Response::builder()
-                            .status(StatusCode::NOT_FOUND)
-                            .body(Cow::Borrowed(&[] as &[u8]))
-                            .unwrap(),
-                    );
-                    return;
-                }
-
-                // Copy data from C# allocated memory
-                let body = unsafe { std::slice::from_raw_parts(out_data, out_len).to_vec() };
-
-                // Get MIME type
-                let mime_type = if !out_mime_type.is_null() {
-                    unsafe { CStr::from_ptr(out_mime_type).to_string_lossy().into_owned() }
-                } else {
-                    "application/octet-stream".to_string()
-                };
-
-                log::info!("Protocol response: {} bytes, mime: {}", body.len(), mime_type);
-
-                responder.respond(
-                    Response::builder()
-                        .status(StatusCode::OK)
-                        .header("Content-Type", mime_type)
-                        .body(Cow::Owned(body))
-                        .unwrap(),
-                );
-            },
-        );
+#[no_mangle]
+pub extern "C" fn wry_window_identifier(window: *mut WryWindowHandle) -> *const c_char {
+    if window.is_null() {
+        return ptr::null();
     }
 
-    // Set URL or HTML
-    let url = unsafe { c_str_to_string(params.url) };
-    let html = unsafe { c_str_to_string(params.html) };
-    let user_agent = unsafe { c_str_to_string(params.user_agent) };
+    unsafe { &*window }.identifier.as_ptr()
+}
 
-    if let Some(url) = url {
-        log::info!("Setting webview URL: {}", url);
-        builder = builder.with_url(&url);
-    } else if let Some(html) = html {
-        log::debug!("Setting webview HTML content");
-        builder = builder.with_html(&html);
+// ============================================================================
+// Window Properties - Setters
+// ============================================================================
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_title(
+    window: *mut WryWindowHandle,
+    title: *const c_char,
+) -> bool {
+    let Some(title) = opt_cstring(title) else {
+        return false;
+    };
+    with_window(window, |w| {
+        w.set_title(&title);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_fullscreen(
+    window: *mut WryWindowHandle,
+    fullscreen: bool,
+) -> bool {
+    with_window(window, |w| {
+        if fullscreen {
+            w.set_fullscreen(Some(Fullscreen::Borderless(None)));
+        } else {
+            w.set_fullscreen(None);
+        }
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_decorations(
+    window: *mut WryWindowHandle,
+    decorations: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_decorations(decorations);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_always_on_bottom(
+    window: *mut WryWindowHandle,
+    on_bottom: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_always_on_bottom(on_bottom);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_visible_on_all_workspaces(
+    window: *mut WryWindowHandle,
+    visible_on_all_workspaces: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_visible_on_all_workspaces(visible_on_all_workspaces);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_content_protected(
+    window: *mut WryWindowHandle,
+    protected: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_content_protection(protected);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_resizable(
+    window: *mut WryWindowHandle,
+    resizable: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_resizable(resizable);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_always_on_top(
+    window: *mut WryWindowHandle,
+    on_top: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_always_on_top(on_top);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_visible(window: *mut WryWindowHandle, visible: bool) -> bool {
+    with_window(window, |w| {
+        let _ = w.set_visible(visible);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_maximized(
+    window: *mut WryWindowHandle,
+    maximized: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_maximized(maximized);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_minimized(
+    window: *mut WryWindowHandle,
+    minimized: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_minimized(minimized);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_skip_taskbar(
+    window: *mut WryWindowHandle,
+    skip: bool,
+) -> bool {
+    with_window(window, |w| {
+        #[cfg(target_os = "windows")]
+        {
+            use tao::platform::windows::WindowExtWindows;
+            return w.set_skip_taskbar(skip).is_ok();
+        }
+
+        #[cfg(any(
+            target_os = "linux",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd"
+        ))]
+        {
+            use tao::platform::unix::WindowExtUnix;
+            return w.set_skip_taskbar(skip).is_ok();
+        }
+
+        #[cfg(not(any(
+            target_os = "windows",
+            target_os = "linux",
+            target_os = "dragonfly",
+            target_os = "freebsd",
+            target_os = "netbsd",
+            target_os = "openbsd"
+        )))]
+        {
+            let _ = (w, skip);
+            return false;
+        }
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_minimizable(
+    window: *mut WryWindowHandle,
+    minimizable: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_minimizable(minimizable);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_maximizable(
+    window: *mut WryWindowHandle,
+    maximizable: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_maximizable(maximizable);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_closable(
+    window: *mut WryWindowHandle,
+    closable: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_closable(closable);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_background_color(
+    window: *mut WryWindowHandle,
+    color: *const WryColor,
+) -> bool {
+    let color = opt_color(color);
+    with_window(window, |w| {
+        w.set_background_color(color);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_theme(
+    window: *mut WryWindowHandle,
+    theme: WryWindowTheme,
+) -> bool {
+    let theme = theme_from_ffi(theme);
+    with_window(window, |w| {
+        w.set_theme(theme);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_focusable(
+    window: *mut WryWindowHandle,
+    focusable: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_focusable(focusable);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_size(
+    window: *mut WryWindowHandle,
+    width: f64,
+    height: f64,
+) -> bool {
+    with_window(window, |w| {
+        w.set_inner_size(LogicalSize::new(width, height));
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_position(
+    window: *mut WryWindowHandle,
+    x: f64,
+    y: f64,
+) -> bool {
+    with_window(window, |w| {
+        w.set_outer_position(LogicalPosition::new(x, y));
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_min_size(
+    window: *mut WryWindowHandle,
+    width: f64,
+    height: f64,
+) -> bool {
+    with_window(window, |w| {
+        let size: Option<Size> = if width > 0.0 && height > 0.0 {
+            Some(Size::Logical(LogicalSize::new(width, height)))
+        } else {
+            None
+        };
+        w.set_min_inner_size(size);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_max_size(
+    window: *mut WryWindowHandle,
+    width: f64,
+    height: f64,
+) -> bool {
+    with_window(window, |w| {
+        let size: Option<Size> = if width > 0.0 && height > 0.0 {
+            Some(Size::Logical(LogicalSize::new(width, height)))
+        } else {
+            None
+        };
+        w.set_max_inner_size(size);
+        true
+    })
+    .unwrap_or(false)
+}
+
+// ============================================================================
+// Window Properties - Getters
+// ============================================================================
+
+#[no_mangle]
+pub extern "C" fn wry_window_is_maximized(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| w.is_maximized()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_is_minimized(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| w.is_minimized()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_is_visible(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| w.is_visible()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_is_resizable(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| w.is_resizable()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_is_decorated(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| w.is_decorated()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_is_always_on_top(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| w.is_always_on_top()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_is_minimizable(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| w.is_minimizable()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_is_maximizable(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| w.is_maximizable()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_is_closable(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| w.is_closable()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_is_fullscreen(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| w.fullscreen().is_some()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_is_focused(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| w.is_focused()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_scale_factor(
+    window: *mut WryWindowHandle,
+    scale_factor: *mut f64,
+) -> bool {
+    if scale_factor.is_null() {
+        return false;
     }
 
-    if let Some(ua) = user_agent {
-        builder = builder.with_user_agent(&ua);
+    with_window(window, |w| {
+        unsafe {
+            *scale_factor = w.scale_factor();
+        }
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_inner_position(
+    window: *mut WryWindowHandle,
+    position: *mut WryPoint,
+) -> bool {
+    if position.is_null() {
+        return false;
     }
 
-    // Enable devtools in debug or if explicitly requested
-    #[cfg(debug_assertions)]
+    with_window(window, |w| match w.inner_position() {
+        Ok(pos) => {
+            write_position(position, pos.to_logical(w.scale_factor()));
+            true
+        }
+        Err(_) => false,
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_outer_position(
+    window: *mut WryWindowHandle,
+    position: *mut WryPoint,
+) -> bool {
+    if position.is_null() {
+        return false;
+    }
+
+    with_window(window, |w| match w.outer_position() {
+        Ok(pos) => {
+            write_position(position, pos.to_logical(w.scale_factor()));
+            true
+        }
+        Err(_) => false,
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_inner_size(
+    window: *mut WryWindowHandle,
+    size: *mut WrySize,
+) -> bool {
+    if size.is_null() {
+        return false;
+    }
+
+    with_window(window, |w| {
+        let inner = w.inner_size().to_logical::<f64>(w.scale_factor());
+        write_size(size, inner);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_outer_size(
+    window: *mut WryWindowHandle,
+    size: *mut WrySize,
+) -> bool {
+    if size.is_null() {
+        return false;
+    }
+
+    with_window(window, |w| {
+        let outer = w.outer_size().to_logical::<f64>(w.scale_factor());
+        write_size(size, outer);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_title(window: *mut WryWindowHandle) -> *const c_char {
+    with_window(window, |w| {
+        let title = w.title();
+        write_string_to_buffer(&TITLE_BUFFER, title)
+    })
+    .unwrap_or(ptr::null())
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_cursor_position(
+    window: *mut WryWindowHandle,
+    point: *mut WryPoint,
+) -> bool {
+    if point.is_null() {
+        return false;
+    }
+
+    with_window(window, |w| match w.cursor_position() {
+        Ok(position) => {
+            unsafe {
+                (*point).x = position.x;
+                (*point).y = position.y;
+            }
+            true
+        }
+        Err(_) => false,
+    })
+    .unwrap_or(false)
+}
+
+// ============================================================================
+// Monitor Information
+// ============================================================================
+
+#[no_mangle]
+pub extern "C" fn wry_window_current_monitor(window: *mut WryWindowHandle) -> *const c_char {
+    with_window(window, |w| {
+        if let Some(monitor) = w.current_monitor() {
+            write_json_to_buffer(&MONITOR_BUFFER, monitor_to_json(&monitor))
+        } else {
+            ptr::null()
+        }
+    })
+    .unwrap_or(ptr::null())
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_primary_monitor(window: *mut WryWindowHandle) -> *const c_char {
+    with_window(window, |w| {
+        if let Some(monitor) = w.primary_monitor() {
+            write_json_to_buffer(&MONITOR_BUFFER, monitor_to_json(&monitor))
+        } else {
+            ptr::null()
+        }
+    })
+    .unwrap_or(ptr::null())
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_available_monitors(window: *mut WryWindowHandle) -> *const c_char {
+    with_window(window, |w| {
+        let monitors: Vec<_> = w
+            .available_monitors()
+            .map(|monitor| monitor_to_json(&monitor))
+            .collect();
+        write_json_to_buffer(&MONITOR_LIST_BUFFER, serde_json::Value::Array(monitors))
+    })
+    .unwrap_or(ptr::null())
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_monitor_from_point(
+    window: *mut WryWindowHandle,
+    point: WryPoint,
+) -> *const c_char {
+    with_window(window, |w| {
+        if let Some(monitor) = w.monitor_from_point(point.x, point.y) {
+            write_json_to_buffer(&MONITOR_BUFFER, monitor_to_json(&monitor))
+        } else {
+            ptr::null()
+        }
+    })
+    .unwrap_or(ptr::null())
+}
+
+// ============================================================================
+// Window Actions
+// ============================================================================
+
+#[no_mangle]
+pub extern "C" fn wry_window_focus(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| {
+        w.set_focus();
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_request_redraw(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| {
+        w.request_redraw();
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_request_user_attention(
+    window: *mut WryWindowHandle,
+    attention_type: WryUserAttentionType,
+) -> bool {
+    let attention = tao_user_attention_from_ffi(attention_type);
+    with_window(window, |w| {
+        w.request_user_attention(Some(attention));
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_clear_user_attention(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| {
+        w.request_user_attention(None);
+        true
+    })
+    .unwrap_or(false)
+}
+
+// ============================================================================
+// Cursor Operations
+// ============================================================================
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_cursor_grab(window: *mut WryWindowHandle, grab: bool) -> bool {
+    with_window(window, |w| w.set_cursor_grab(grab).is_ok()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_cursor_visible(
+    window: *mut WryWindowHandle,
+    visible: bool,
+) -> bool {
+    with_window(window, |w| {
+        w.set_cursor_visible(visible);
+        true
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_cursor_position(
+    window: *mut WryWindowHandle,
+    x: f64,
+    y: f64,
+) -> bool {
+    with_window(window, |w| {
+        w.set_cursor_position(LogicalPosition::new(x, y)).is_ok()
+    })
+    .unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_set_ignore_cursor_events(
+    window: *mut WryWindowHandle,
+    ignore: bool,
+) -> bool {
+    with_window(window, |w| w.set_ignore_cursor_events(ignore).is_ok()).unwrap_or(false)
+}
+
+// ============================================================================
+// Drag Operations
+// ============================================================================
+
+#[no_mangle]
+pub extern "C" fn wry_window_start_dragging(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| w.drag_window().is_ok()).unwrap_or(false)
+}
+
+#[no_mangle]
+pub extern "C" fn wry_window_start_resize_dragging(
+    window: *mut WryWindowHandle,
+    direction: WryResizeDirection,
+) -> bool {
+    let tao_direction = tao_resize_direction_from_ffi(direction);
+    with_window(window, |w| w.drag_resize_window(tao_direction).is_ok()).unwrap_or(false)
+}
+
+// ============================================================================
+// Window Enable/Disable (for modal dialogs)
+// ============================================================================
+
+/// Enable or disable a window (blocks/unblocks user interaction).
+///
+/// On Windows, uses `set_enable`. On Linux, uses `set_sensitive`.
+/// On macOS, this is a no-op.
+#[no_mangle]
+pub extern "C" fn wry_window_set_enabled(window: *mut WryWindowHandle, enabled: bool) -> bool {
+    #[cfg(target_os = "windows")]
     {
-        builder = builder.with_devtools(true);
+        use tao::platform::windows::WindowExtWindows;
+        return with_window(window, |w| {
+            w.set_enable(enabled);
+            true
+        })
+        .unwrap_or(false);
     }
-    #[cfg(not(debug_assertions))]
-    {
-        builder = builder.with_devtools(params.devtools_enabled);
-    }
-
-    if params.transparent {
-        builder = builder.with_transparent(true);
-    }
-
-    // Add IPC handler for messages from JavaScript
-    // Note: We can't directly access callbacks here since WindowState doesn't exist yet.
-    // The IPC messages need to be routed through a registry or the event loop.
-    // For now, we log and the actual callback invocation happens via the callbacks system.
-    let wid = window_id;
-    builder = builder.with_ipc_handler(move |req| {
-        let body = req.body();
-        log::debug!("IPC message received from window {:?}: {}", wid, body);
-        // Callback invocation is handled by WindowCallbacks which has access to the window pointer
-        // The C# side needs to set up callbacks that will be invoked
-        // For direct callback access, we'd need a global callback registry
-        crate::callbacks::invoke_message_callback(wid, body);
-    });
-
-    // Build the webview
-    #[cfg(not(target_os = "linux"))]
-    let result = builder.build(window);
 
     #[cfg(target_os = "linux")]
-    let result = {
+    {
+        use gtk::prelude::WidgetExt;
         use tao::platform::unix::WindowExtUnix;
-        use wry::WebViewBuilderExtUnix;
+        return with_window(window, |w| {
+            w.gtk_window().set_sensitive(enabled);
+            true
+        })
+        .unwrap_or(false);
+    }
 
-        let vbox = window.default_vbox();
-        match vbox {
-            Some(vbox) => builder.build_gtk(vbox),
-            None => {
-                log::error!("Failed to get GTK vbox from window");
-                return None;
-            }
-        }
+    #[cfg(not(any(target_os = "windows", target_os = "linux")))]
+    {
+        let _ = (window, enabled);
+        false
+    }
+}
+
+// ============================================================================
+// Window Icon
+// ============================================================================
+
+/// Set window icon from raw RGBA pixel data.
+#[no_mangle]
+pub extern "C" fn wry_window_set_icon_rgba(
+    window: *mut WryWindowHandle,
+    rgba_data: *const u8,
+    rgba_len: usize,
+    width: u32,
+    height: u32,
+) -> bool {
+    if rgba_data.is_null() || rgba_len == 0 {
+        return false;
+    }
+
+    let data = unsafe { std::slice::from_raw_parts(rgba_data, rgba_len) };
+
+    guard_panic_bool(|| {
+        let icon = Icon::from_rgba(data.to_vec(), width, height)
+            .map_err(|e| log::error!("Failed to create icon from RGBA: {e}"))
+            .ok();
+
+        with_window(window, |w| {
+            w.set_window_icon(icon);
+            true
+        })
+        .unwrap_or(false)
+    })
+}
+
+/// Set window icon from an image file (PNG, ICO, JPEG).
+#[no_mangle]
+pub extern "C" fn wry_window_set_icon_file(
+    window: *mut WryWindowHandle,
+    path: *const c_char,
+) -> bool {
+    let Some(path_str) = opt_cstring(path) else {
+        return false;
     };
 
-    match result {
-        Ok(webview) => {
-            log::info!("Webview created successfully");
-            Some(webview)
-        }
-        Err(e) => {
-            log::error!("Failed to create webview: {}", e);
-            None
-        }
-    }
+    guard_panic_bool(|| {
+        let img = image::open(&path_str)
+            .map_err(|e| log::error!("Failed to load icon file '{}': {e}", path_str))
+            .ok();
+        let Some(img) = img else {
+            return false;
+        };
+
+        let rgba = img.into_rgba8();
+        let (w, h) = rgba.dimensions();
+        let icon = Icon::from_rgba(rgba.into_raw(), w, h)
+            .map_err(|e| log::error!("Failed to create icon: {e}"))
+            .ok();
+
+        with_window(window, |win| {
+            win.set_window_icon(icon);
+            true
+        })
+        .unwrap_or(false)
+    })
 }
 
-/// Destroy window and free resources
-///
-/// This function is thread-safe - it dispatches via the event loop.
-///
-/// # Safety
-/// The window handle must not be used after this call.
+/// Clear the window icon.
 #[no_mangle]
-pub unsafe extern "C" fn wry_window_destroy(window: WryWindow) {
-    if window.is_null() {
-        return;
-    }
-
-    log::info!("wry_window_destroy called");
-    let window_state = &*(window as *const WindowState);
-
-    // Request destruction via event loop (thread-safe)
-    window_state.request_destroy();
+pub extern "C" fn wry_window_clear_icon(window: *mut WryWindowHandle) -> bool {
+    with_window(window, |w| {
+        w.set_window_icon(None);
+        true
+    })
+    .unwrap_or(false)
 }
 
-/// Helper to get WindowState from handle with validation
-pub unsafe fn get_window_state<'a>(window: WryWindow) -> Option<&'a WindowState> {
-    if window.is_null() {
-        set_last_error("Null window handle");
-        return None;
+// ============================================================================
+// Parent/Modal Helpers (platform-specific)
+// ============================================================================
+
+/// Sets parent window relationship on the builder (platform-specific).
+fn set_parent_window(
+    builder: TaoWindowBuilder,
+    parent: &tao::window::Window,
+) -> TaoWindowBuilder {
+    #[cfg(target_os = "linux")]
+    {
+        use tao::platform::unix::{WindowBuilderExtUnix, WindowExtUnix};
+        return builder.with_transient_for(parent.gtk_window());
     }
-    Some(&*(window as *const WindowState))
+
+    #[cfg(target_os = "windows")]
+    {
+        use tao::platform::windows::{WindowBuilderExtWindows, WindowExtWindows};
+        return builder.with_owner_window(parent.hwnd());
+    }
+
+    #[cfg(target_os = "macos")]
+    {
+        use tao::platform::macos::{WindowBuilderExtMacOS, WindowExtMacOS};
+        return builder.with_parent_window(parent.ns_window());
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows", target_os = "macos")))]
+    {
+        let _ = parent;
+        builder
+    }
 }
 
-/// Helper to get mutable WindowState from handle with validation
-pub unsafe fn get_window_state_mut<'a>(window: WryWindow) -> Option<&'a mut WindowState> {
-    if window.is_null() {
-        set_last_error("Null window handle");
-        return None;
+/// Sets modal behavior after window creation (platform-specific).
+fn set_modal_behavior(window: &tao::window::Window, _parent: *mut WryWindowHandle) {
+    // Linux: GTK set_modal blocks interaction with the transient parent.
+    #[cfg(target_os = "linux")]
+    {
+        use gtk::prelude::GtkWindowExt;
+        use tao::platform::unix::WindowExtUnix;
+        window.gtk_window().set_modal(true);
     }
-    Some(&mut *(window as *mut WindowState))
+
+    // Windows: Disable the parent window to create modal behavior.
+    // The C# layer re-enables the parent when the modal closes.
+    #[cfg(target_os = "windows")]
+    {
+        use tao::platform::windows::WindowExtWindows;
+        if !_parent.is_null() {
+            let parent_handle = unsafe { &*_parent };
+            parent_handle.window.set_enable(false);
+        }
+    }
+
+    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
+    {
+        let _ = (window, _parent);
+    }
 }
